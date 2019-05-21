@@ -24,8 +24,8 @@ A typical install process should be:
 If installation succeeded then `fast3defdr.Fast3DeFDR` should be importable from
 an interactive shell started in some other directory:
 
-    $ cd <some other directory>
-    $ python
+    (venv)$ cd <some other directory>
+    (venv)$ python
     >>> from fast3defdr import Fast3DeFDR
 
 Basic walkthrough
