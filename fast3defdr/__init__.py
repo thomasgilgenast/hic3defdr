@@ -334,14 +334,6 @@ class Fast3DeFDR(object):
         qvalues = np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
         bias = np.array([np.loadtxt(pattern.replace('<chrom>', chrom))
                          for pattern in self.bias_patterns]).T
-        sig_cluster_csr = clusters_to_coo(
-            load_clusters('%s/sig_%s_%g_%i.json' %
-                          (self.outdir, chrom, fdr, cluster_size)),
-            (bias.shape[0], bias.shape[0])).tocsr()
-        insig_cluster_csr = clusters_to_coo(
-            load_clusters('%s/insig_%s_%g_%i.json' %
-                          (self.outdir, chrom, fdr, cluster_size)),
-            (bias.shape[0], bias.shape[0])).tocsr()
 
         # precompute some things
         f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
@@ -360,12 +352,6 @@ class Fast3DeFDR(object):
                 rs, cs, row[disp_idx][loop_idx], col[disp_idx][loop_idx],
                 -np.log10(qvalues)),
             cmap=bwr, interpolation='none', vmin=0, vmax=-np.log10(fdr)*2)
-        ax[-1, 0].contour(
-            dilate(sig_cluster_csr[rs, cs].toarray(), 2), [0.5],
-            colors='orange', linewidths=3, extent=extent)
-        ax[-1, 0].contour(
-            dilate(insig_cluster_csr[rs, cs].toarray(), 2), [0.5],
-            colors='gray', linewidths=3, extent=extent)
         ax[-1, 0].set_title('qvalues')
         for c in range(self.design.shape[1]):
             ax[c, 0].imshow(
@@ -373,12 +359,6 @@ class Fast3DeFDR(object):
                     rs, cs, row[disp_idx], col[disp_idx],
                     mu_hat_alt[:, np.where(self.design.values[:, c])[0][0]]),
                 cmap=red, interpolation='none', vmin=0, vmax=100)
-            ax[c, 0].contour(
-                dilate(sig_cluster_csr[rs, cs].toarray(), 2), [0.5],
-                colors='purple', linewidths=3, extent=extent)
-            ax[c, 0].contour(
-                dilate(insig_cluster_csr[rs, cs].toarray(), 2), [0.5],
-                colors='gray', linewidths=3, extent=extent)
             ax[c, 0].set_ylabel(self.design.columns[c])
             ax_idx = 1
             for r in range(self.design.shape[0]):
@@ -430,3 +410,37 @@ class Fast3DeFDR(object):
         ax[-1, 2].set_xlabel('replicate')
         ax[-1, 2].legend()
         sns.despine(ax=ax[-1, 2])
+
+        contours = []
+
+        def outline_clusters(fdr, cluster_size):
+            sig_cluster_csr = clusters_to_coo(
+                load_clusters('%s/sig_%s_%g_%i.json' %
+                              (self.outdir, chrom, fdr, cluster_size)),
+                (bias.shape[0], bias.shape[0])).tocsr()
+            insig_cluster_csr = clusters_to_coo(
+                load_clusters('%s/insig_%s_%g_%i.json' %
+                              (self.outdir, chrom, fdr, cluster_size)),
+                (bias.shape[0], bias.shape[0])).tocsr()
+            if contours:
+                for contour in contours:
+                    for coll in contour.collections:
+                        coll.remove()
+                del contours[:]
+            contours.append(ax[-1, 0].contour(
+                dilate(sig_cluster_csr[rs, cs].toarray(), 2), [0.5],
+                colors='orange', linewidths=3, extent=extent))
+            contours.append(ax[-1, 0].contour(
+                dilate(insig_cluster_csr[rs, cs].toarray(), 2), [0.5],
+                colors='gray', linewidths=3, extent=extent))
+            for c in range(self.design.shape[1]):
+                contours.append(ax[c, 0].contour(
+                    dilate(sig_cluster_csr[rs, cs].toarray(), 2), [0.5],
+                    colors='purple', linewidths=3, extent=extent))
+                contours.append(ax[c, 0].contour(
+                    dilate(insig_cluster_csr[rs, cs].toarray(), 2), [0.5],
+                    colors='gray', linewidths=3, extent=extent))
+
+        outline_clusters(fdr, cluster_size)
+
+        return outline_clusters

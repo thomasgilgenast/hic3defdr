@@ -155,3 +155,18 @@ applied are the zero filter, bias filter, and distance filter. For the alt model
 mean heatmaps in the upper left, this additionally includes the dispersion
 filter. For the q-value heatmap in the lower left, it additionally includes the
 loop filter if loop locations were supplied.
+
+### Interactive thresholding
+
+In a Jupyter notebook environment with `ipywidgets` installed, you can play with
+thresholds on a live-updating plot by running:
+
+    %matplotlib notebook
+
+    from ipywidgets import interact
+    from fast3defdr import Fast3DeFDR
+    
+    f = Fast3DeFDR.load('output')
+    _, outline_clusters = f.plot_grid('chr1', 1303, 1312, 50)
+    _ = interact(outline_clusters, fdr=[0.01, 0.05, 0.1, 0.2],
+                 cluster_size=[4, 5])
