@@ -111,6 +111,12 @@ The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
 
 ### Dispersion fitting
 
-    >>> f.dispersion_fit('chr1', outfile='disp.png')
+    >>> f.plot_dispersion_fit('chr1', outfile='disp.png')
 
 ![](images/disp.png)
+
+### P-value distribution
+
+    >>> f.plot_pvalue_distribution(outfile='pvalue_dist.png')
+
+![](images/pvalue_dist.png)

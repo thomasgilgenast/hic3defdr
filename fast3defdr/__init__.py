@@ -283,3 +283,21 @@ class Fast3DeFDR(object):
         plt.xlabel('mean')
         plt.ylabel('variance')
         plt.legend(loc='lower right')
+
+    @plotter
+    def plot_pvalue_distribution(self, idx='disp', **kwargs):
+        # load everything
+        if idx == 'loop':
+            pvalues = [np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))[
+                           np.load('%s/loop_idx_%s.npy' % (self.outdir, chrom))]
+                       for chrom in self.chroms]
+        elif idx == 'disp':
+            pvalues = [np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))
+                       for chrom in self.chroms]
+        else:
+            raise ValueError('idx must be loop or disp')
+
+        # plot
+        plt.hist(np.concatenate(pvalues), bins=np.linspace(0, 1, 21))
+        plt.xlabel('pvalue')
+        plt.ylabel('number of pixels')
