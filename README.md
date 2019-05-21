@@ -103,4 +103,8 @@ Visualizations
 
 The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
 
-TODO: add the visualizations
+### Distance dependence curves before and after scaling
+
+    >>> f.plot_dd_curve('chr1', outfile='dd.png')
+
+![](images/dd.png)

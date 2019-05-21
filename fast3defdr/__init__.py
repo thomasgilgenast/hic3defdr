@@ -4,10 +4,12 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sparse
 import scipy.stats as stats
+import matplotlib.pyplot as plt
 
 from lib5c.util.system import check_outdir
 from lib5c.util.mathematics import gmean
 from lib5c.util.statistics import adjust_pvalues
+from lib5c.util.plotting import plotter
 from hiclite.util.clusters import load_clusters, find_clusters, save_clusters
 
 from fast3defdr.sparse_intersection import sparse_intersection
@@ -205,3 +207,44 @@ class Fast3DeFDR(object):
     def threshold_all(self, fdr=0.05, cluster_size=4):
         for chrom in self.chroms:
             self.threshold_chrom(chrom, fdr=fdr, cluster_size=cluster_size)
+
+    @plotter
+    def plot_dd_curve(self, chrom, log=True, **kwargs):
+        # load everything
+        row = np.load('%s/row_%s.npy' % (self.outdir, chrom))
+        col = np.load('%s/col_%s.npy' % (self.outdir, chrom))
+        raw = np.load('%s/raw_%s.npy' % (self.outdir, chrom))
+        scaled = np.load('%s/scaled_%s.npy' % (self.outdir, chrom))
+        bias = np.array([np.loadtxt(pattern.replace('<chrom>', chrom))
+                         for pattern in self.bias_patterns]).T
+
+        # compute balanced
+        balanced = np.zeros_like(raw, dtype=float)
+        for r in range(self.design.shape[0]):
+            balanced[:, r] = raw[:, r] / (bias[row, r] * bias[col, r])
+
+        # compute dist and bin on it
+        dist = col - row
+        dist_bin_idx = np.digitize(dist, np.linspace(0, 1000, 101), right=True)
+
+        # plot mean counts in each dist bin
+        bs = np.arange(1, dist_bin_idx.max() + 1)
+        balanced_means = np.array(
+            [np.mean(balanced[dist_bin_idx == b, :], axis=0) for b in bs])
+        scaled_means = np.array(
+            [np.mean(scaled[dist_bin_idx == b, :], axis=0) for b in bs])
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        for r, repname in enumerate(self.design.index):
+            ax1.plot(bs, balanced_means[:, r], label=repname, color='C%i' % r)
+            ax2.plot(bs, scaled_means[:, r], label=repname, color='C%i' % r)
+        plt.legend()
+        ax1.set_xlabel('distance (bins)')
+        ax2.set_xlabel('distance (bins)')
+        ax1.set_ylabel('average counts')
+        ax1.set_title('balanced')
+        ax2.set_title('scaled')
+        if log:
+            ax1.set_yscale('log')
+            ax1.set_xscale('log')
+            ax2.set_yscale('log')
+            ax2.set_xscale('log')
