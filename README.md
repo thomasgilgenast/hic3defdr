@@ -120,3 +120,9 @@ The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
     >>> f.plot_pvalue_distribution(outfile='pvalue_dist.png')
 
 ![](images/pvalue_dist.png)
+
+### Q-value distribution
+
+    >>> f.plot_qvalue_distribution(outfile='qvalue_dist.png')
+
+![](images/qvalue_dist.png)

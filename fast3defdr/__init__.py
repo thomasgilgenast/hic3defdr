@@ -301,3 +301,14 @@ class Fast3DeFDR(object):
         plt.hist(np.concatenate(pvalues), bins=np.linspace(0, 1, 21))
         plt.xlabel('pvalue')
         plt.ylabel('number of pixels')
+
+    @plotter
+    def plot_qvalue_distribution(self, **kwargs):
+        # load everything
+        qvalues = [np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
+                   for chrom in self.chroms]
+
+        # plot
+        plt.hist(np.concatenate(qvalues), bins=np.linspace(0, 1, 21))
+        plt.xlabel('qvalue')
+        plt.ylabel('number of pixels')
