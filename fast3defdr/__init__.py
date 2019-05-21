@@ -5,15 +5,18 @@ import pandas as pd
 import scipy.sparse as sparse
 import scipy.stats as stats
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from lib5c.util.system import check_outdir
 from lib5c.util.mathematics import gmean
 from lib5c.util.statistics import adjust_pvalues
 from lib5c.util.plotting import plotter
+from lib5c.plotters.colormaps import get_colormap
 from lib5c.plotters.scatter import scatter
-from hiclite.util.clusters import load_clusters, find_clusters, save_clusters
+from hiclite.util.clusters import load_clusters, find_clusters, save_clusters, \
+    clusters_to_coo
 
-from fast3defdr.sparse_intersection import sparse_intersection
+from fast3defdr.util import sparse_intersection, select_matrix, dilate
 from fast3defdr.scaled_nb import logpmf, fit_mu_hat, mvr
 
 from ._version import get_versions
@@ -136,10 +139,11 @@ class Fast3DeFDR(object):
         print('  saving results to disk')
         np.save('%s/row_%s.npy' % (self.outdir, chrom), row)
         np.save('%s/col_%s.npy' % (self.outdir, chrom), col)
+        np.save('%s/raw_%s.npy' % (self.outdir, chrom), raw)
+        np.save('%s/size_%s.npy' % (self.outdir, chrom), size_factors)
+        np.save('%s/scaled_%s.npy' % (self.outdir, chrom), scaled)
         np.save('%s/disp_idx_%s.npy' % (self.outdir, chrom), disp_idx)
         np.save('%s/disp_%s.npy' % (self.outdir, chrom), disp)
-        np.save('%s/raw_%s.npy' % (self.outdir, chrom), raw)
-        np.save('%s/scaled_%s.npy' % (self.outdir, chrom), scaled)
         np.save('%s/mu_hat_null_%s.npy' % (self.outdir, chrom), mu_hat_null)
         np.save('%s/mu_hat_alt_%s.npy' % (self.outdir, chrom), mu_hat_alt)
         np.save('%s/llr_%s.npy' % (self.outdir, chrom), llr)
@@ -312,3 +316,117 @@ class Fast3DeFDR(object):
         plt.hist(np.concatenate(qvalues), bins=np.linspace(0, 1, 21))
         plt.xlabel('qvalue')
         plt.ylabel('number of pixels')
+
+    @plotter
+    def plot_grid(self, chrom, i, j, w, fdr=0.05, cluster_size=4, despine=False,
+                  **kwargs):
+        # load everything
+        row = np.load('%s/row_%s.npy' % (self.outdir, chrom))
+        col = np.load('%s/col_%s.npy' % (self.outdir, chrom))
+        raw = np.load('%s/raw_%s.npy' % (self.outdir, chrom))
+        scaled = np.load('%s/scaled_%s.npy' % (self.outdir, chrom))
+        size_factors = np.load('%s/size_%s.npy' % (self.outdir, chrom))
+        disp_idx = np.load('%s/disp_idx_%s.npy' % (self.outdir, chrom))
+        loop_idx = np.load('%s/loop_idx_%s.npy' % (self.outdir, chrom)) \
+            if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
+        mu_hat_alt = np.load('%s/mu_hat_alt_%s.npy' % (self.outdir, chrom))
+        mu_hat_null = np.load('%s/mu_hat_null_%s.npy' % (self.outdir, chrom))
+        qvalues = np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
+        bias = np.array([np.loadtxt(pattern.replace('<chrom>', chrom))
+                         for pattern in self.bias_patterns]).T
+        sig_cluster_csr = clusters_to_coo(
+            load_clusters('%s/sig_%s_%g_%i.json' %
+                          (self.outdir, chrom, fdr, cluster_size)),
+            (bias.shape[0], bias.shape[0])).tocsr()
+        insig_cluster_csr = clusters_to_coo(
+            load_clusters('%s/insig_%s_%g_%i.json' %
+                          (self.outdir, chrom, fdr, cluster_size)),
+            (bias.shape[0], bias.shape[0])).tocsr()
+
+        # precompute some things
+        f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
+        max_reps = np.max(np.sum(self.design, axis=0))
+        idx = np.where((row[disp_idx] == i) & (col[disp_idx] == j))[0][0]
+        extent = [-0.5, 2*w-0.5, -0.5, 2*w-0.5]
+        rs, cs = slice(i-w, i+w), slice(j-w, j+w)
+
+        # plot
+        fig, ax = plt.subplots(self.design.shape[1]+1, max_reps+1,
+                               figsize=(self.design.shape[1]*6, max_reps*6))
+        bwr = get_colormap('bwr', set_bad='g')
+        red = get_colormap('Reds', set_bad='g')
+        ax[-1, 0].imshow(
+            select_matrix(
+                rs, cs, row[disp_idx][loop_idx], col[disp_idx][loop_idx],
+                -np.log10(qvalues)),
+            cmap=bwr, interpolation='none', vmin=0, vmax=-np.log10(fdr)*2)
+        ax[-1, 0].contour(
+            dilate(sig_cluster_csr[rs, cs].toarray(), 2), [0.5],
+            colors='orange', linewidths=3, extent=extent)
+        ax[-1, 0].contour(
+            dilate(insig_cluster_csr[rs, cs].toarray(), 2), [0.5],
+            colors='gray', linewidths=3, extent=extent)
+        ax[-1, 0].set_title('qvalues')
+        for c in range(self.design.shape[1]):
+            ax[c, 0].imshow(
+                select_matrix(
+                    rs, cs, row[disp_idx], col[disp_idx],
+                    mu_hat_alt[:, np.where(self.design.values[:, c])[0][0]]),
+                cmap=red, interpolation='none', vmin=0, vmax=100)
+            ax[c, 0].contour(
+                dilate(sig_cluster_csr[rs, cs].toarray(), 2), [0.5],
+                colors='purple', linewidths=3, extent=extent)
+            ax[c, 0].contour(
+                dilate(insig_cluster_csr[rs, cs].toarray(), 2), [0.5],
+                colors='gray', linewidths=3, extent=extent)
+            ax[c, 0].set_ylabel(self.design.columns[c])
+            ax_idx = 1
+            for r in range(self.design.shape[0]):
+                if not self.design.values[r, c]:
+                    continue
+                ax[c, ax_idx].imshow(
+                    select_matrix(rs, cs, row, col, scaled[:, r]),
+                    cmap=red, interpolation='none', vmin=0, vmax=100)
+                ax[c, ax_idx].set_title(self.design.index[r])
+                ax_idx += 1
+        ax[0, 0].set_title('alt model mean')
+        for r in range(self.design.shape[1] + 1):
+            for c in range(max_reps + 1):
+                ax[r, c].get_xaxis().set_ticks([])
+                ax[r, c].get_yaxis().set_ticks([])
+                if r == self.design.shape[1] and c == 0:
+                    break
+
+        sns.stripplot(data=[scaled[disp_idx, :][idx, self.design.values[:, c]]
+                            for c in range(self.design.shape[1])], ax=ax[-1, 1])
+        for c in range(self.design.shape[1]):
+            ax[-1, 1].hlines(
+                mu_hat_alt[idx, np.where(self.design.values[:, c])[0][0]],
+                c-0.1, c+0.1, color='C%i' % c, label='alt' if c == 0 else None)
+            ax[-1, 1].hlines(
+                mu_hat_null[idx], c-0.1, c+0.1, color='C%i' % c,
+                linestyles='--', label='null' if c == 0 else None)
+        ax[-1, 1].set_xticklabels(self.design.columns.tolist())
+        ax[-1, 1].set_title('normalized values')
+        ax[-1, 1].set_xlabel('condition')
+        ax[-1, 1].legend()
+        sns.despine(ax=ax[-1, 1])
+
+        sns.stripplot(
+            data=[[raw[disp_idx, :][idx, r]]
+                  for r in range(self.design.shape[0])],
+            palette=['C%i' % c for c in np.where(self.design)[1]], ax=ax[-1, 2])
+        for r in range(self.design.shape[0]):
+            ax[-1, 2].hlines(
+                mu_hat_alt[idx, r] * f[idx, r], r-0.1, r+0.1,
+                color='C%i' % np.where(self.design)[1][r],
+                label='alt' if r == 0 else None)
+            ax[-1, 2].hlines(
+                mu_hat_null[idx] * f[idx, r], r-0.1, r+0.1,
+                color='C%i' % np.where(self.design)[1][r], linestyles='--',
+                label='null' if r == 0 else None)
+        ax[-1, 2].set_xticklabels(self.design.index.tolist())
+        ax[-1, 2].set_title('raw values')
+        ax[-1, 2].set_xlabel('replicate')
+        ax[-1, 2].legend()
+        sns.despine(ax=ax[-1, 2])

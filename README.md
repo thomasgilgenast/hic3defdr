@@ -126,3 +126,32 @@ The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
     >>> f.plot_qvalue_distribution(outfile='qvalue_dist.png')
 
 ![](images/qvalue_dist.png)
+
+### Pixel detail grid
+
+    >>> f.plot_grid('chr1', 1303, 1312, 50, outfile='grid.png')
+
+![](images/grid.png)
+
+The upper right heatmaps show the balanced and scaled values in each replicate,
+with each condition on its own row.
+
+The upper left heatmaps show the alternative model mean parameter estimates for
+each condition. Significantly differential clusters are purple while
+constitutive ones are gray.
+
+The lower left heatmap shows the q-values. Significantly differential clusters
+are orange while constitutive ones are gray.
+
+The stripplots in the lower left show details information about the specific
+pixel in the center of the heatmaps (in this example `(1303, 1312)`). The dots
+show the values at that pixel for each replicate in normalized and raw space,
+repsectively. The solid and dashed lines represent the mean parameters under the
+alt and null models, repsectively.
+
+Green points in the heatmaps represent points that have been filtered out. For
+the per-replicate heatmaps in the upper right of the grid, the only filters
+applied are the zero filter, bias filter, and distance filter. For the alt model
+mean heatmaps in the upper left, this additionally includes the dispersion
+filter. For the q-value heatmap in the lower left, it additionally includes the
+loop filter if loop locations were supplied.
