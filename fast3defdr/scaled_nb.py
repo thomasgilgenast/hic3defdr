@@ -27,6 +27,23 @@ def logpmf(k, m, phi):
         r*np.log(r) - r*np.log(r+m) + k*np.log(m) - k*np.log(r+m)
 
 
+def mvr(mean, disp):
+    """
+    Negative binomial fixed-dispersion mean-variance relationship. Vectorized.
+
+    Parameters
+    ----------
+    mean, disp : float
+        The mean and dispersion parameters of a NB distribution, respectively.
+
+    Returns
+    -------
+    float
+        The variance of that NB distribution.
+    """
+    return mean + mean**2 * disp
+
+
 def fit_mu_hat(x, b, alpha):
     """
     Numerical MLE fitter for the mean parameter of the scaled NB model under

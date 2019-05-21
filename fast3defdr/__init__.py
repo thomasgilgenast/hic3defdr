@@ -10,10 +10,11 @@ from lib5c.util.system import check_outdir
 from lib5c.util.mathematics import gmean
 from lib5c.util.statistics import adjust_pvalues
 from lib5c.util.plotting import plotter
+from lib5c.plotters.scatter import scatter
 from hiclite.util.clusters import load_clusters, find_clusters, save_clusters
 
 from fast3defdr.sparse_intersection import sparse_intersection
-from fast3defdr.scaled_nb import logpmf, fit_mu_hat
+from fast3defdr.scaled_nb import logpmf, fit_mu_hat, mvr
 
 from ._version import get_versions
 __version__ = get_versions()['version']
@@ -136,6 +137,7 @@ class Fast3DeFDR(object):
         np.save('%s/row_%s.npy' % (self.outdir, chrom), row)
         np.save('%s/col_%s.npy' % (self.outdir, chrom), col)
         np.save('%s/disp_idx_%s.npy' % (self.outdir, chrom), disp_idx)
+        np.save('%s/disp_%s.npy' % (self.outdir, chrom), disp)
         np.save('%s/raw_%s.npy' % (self.outdir, chrom), raw)
         np.save('%s/scaled_%s.npy' % (self.outdir, chrom), scaled)
         np.save('%s/mu_hat_null_%s.npy' % (self.outdir, chrom), mu_hat_null)
@@ -248,3 +250,36 @@ class Fast3DeFDR(object):
             ax1.set_xscale('log')
             ax2.set_yscale('log')
             ax2.set_xscale('log')
+
+    @plotter
+    def plot_dispersion_fit(self, chrom, cond, **kwargs):
+        # load everything
+        scaled = np.load('%s/scaled_%s.npy' % (self.outdir, chrom))[
+                 np.load('%s/disp_idx_%s.npy' % (self.outdir, chrom)), :]
+        disp = np.load('%s/disp_%s.npy' % (self.outdir, chrom))
+
+        # decide condition and rep index
+        cond_idx = self.design.columns.tolist().index(cond)
+        rep_idx = np.where(self.design.values[:, cond_idx])[0][0]
+
+        # compute mean and var
+        mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
+        mean_wide = np.dot(mean, self.design.T)
+        var = np.dot((scaled - mean_wide) ** 2, self.design) / \
+            (np.sum(self.design, axis=0).values - 1)
+
+        # get some percentiles for setting axis limits
+        ymin = np.percentile(var[:, cond_idx], 0.00001)
+        ymax = np.percentile(var[:, cond_idx], 99.99999)
+        xmax = np.percentile(mean[:, cond_idx], 99.99999)
+
+        # plot
+        scatter(mean[:, cond_idx], var[:, cond_idx],
+                xlim=(self.disp_thresh_mean, xmax), ylim=(ymin, ymax))
+        xs = np.linspace(self.disp_thresh_mean, xmax, 100)
+        plt.plot(xs, xs, c='r', label='Poisson')
+        plt.plot(xs, mvr(xs, disp[rep_idx]), c='purple',
+                 label='estimated overdispersion')
+        plt.xlabel('mean')
+        plt.ylabel('variance')
+        plt.legend(loc='lower right')

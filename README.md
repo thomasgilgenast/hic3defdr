@@ -108,3 +108,9 @@ The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
     >>> f.plot_dd_curve('chr1', outfile='dd.png')
 
 ![](images/dd.png)
+
+### Dispersion fitting
+
+    >>> f.dispersion_fit('chr1', outfile='disp.png')
+
+![](images/disp.png)
