@@ -170,27 +170,37 @@ class Fast3DeFDR(object):
             if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
         qvalues = np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
 
-        # threshold on FDR
-        sig_idx = qvalues < fdr
-        insig_idx = qvalues >= fdr
+        # upgrade fdr and cluster_size to list
+        if not hasattr(fdr, '__len__'):
+            fdr = [fdr]
+        if not hasattr(cluster_size, '__len__'):
+            cluster_size = [cluster_size]
 
-        # gather and cluster sig and insig points
-        sig_points = sparse.coo_matrix(
-            (np.ones(sig_idx.sum(), dtype=bool),
-             (row[disp_idx][loop_idx][sig_idx],
-              col[disp_idx][loop_idx][sig_idx])))
-        insig_points = sparse.coo_matrix(
-            (np.ones(insig_idx.sum().sum(), dtype=bool),
-             (row[disp_idx][loop_idx][insig_idx],
-              col[disp_idx][loop_idx][insig_idx])))
-        sig_clusters = [c for c in find_clusters(sig_points)
-                        if len(c) > cluster_size]
-        insig_clusters = [c for c in find_clusters(insig_points)
-                          if len(c) > cluster_size]
+        for f in fdr:
+            # threshold on FDR
+            sig_idx = qvalues < f
+            insig_idx = qvalues >= f
 
-        # save to disk
-        save_clusters(sig_clusters, '%s/sig_%s.json' % (self.outdir, chrom))
-        save_clusters(insig_clusters, '%s/insig_%s.json' % (self.outdir, chrom))
+            # gather and cluster sig and insig points
+            sig_points = sparse.coo_matrix(
+                (np.ones(sig_idx.sum(), dtype=bool),
+                 (row[disp_idx][loop_idx][sig_idx],
+                  col[disp_idx][loop_idx][sig_idx])))
+            insig_points = sparse.coo_matrix(
+                (np.ones(insig_idx.sum().sum(), dtype=bool),
+                 (row[disp_idx][loop_idx][insig_idx],
+                  col[disp_idx][loop_idx][insig_idx])))
+            for s in cluster_size:
+                sig_clusters = [c for c in find_clusters(sig_points)
+                                if len(c) > s]
+                insig_clusters = [c for c in find_clusters(insig_points)
+                                  if len(c) > s]
+
+                # save to disk
+                save_clusters(sig_clusters, '%s/sig_%s_%g_%i.json' %
+                              (self.outdir, chrom, f, s))
+                save_clusters(insig_clusters, '%s/insig_%s_%g_%i.json' %
+                              (self.outdir, chrom, f, s))
 
     def threshold_all(self, fdr=0.05, cluster_size=4):
         for chrom in self.chroms:

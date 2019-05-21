@@ -81,6 +81,10 @@ We can then threshold and cluster the significantly differential loops
 
     >>> f.threshold_all(fdr=0.05, cluster_size=4)
 
+We can also sweep across FDR and/or cluster size thresholds:
+
+    >>> f.threshold_all(fdr=[0.01, 0.05], cluster_size=[4, 5])
+
 The complete analysis should take about 10 minutes on a laptop and fit
 comfortably in memory.
 
@@ -91,6 +95,7 @@ All intermediates used in the computation will be saved to the disk in the
 `outdir` folder.
 
 TODO: describe the intermediates
+
 TODO: add a tsv-style output file
 
 Visualizations
