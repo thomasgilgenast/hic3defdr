@@ -192,6 +192,6 @@ class Fast3DeFDR(object):
         save_clusters(sig_clusters, '%s/sig_%s.json' % (self.outdir, chrom))
         save_clusters(insig_clusters, '%s/insig_%s.json' % (self.outdir, chrom))
 
-    def threshold_all(self, fdr=0.1, cluster_size=4):
+    def threshold_all(self, fdr=0.05, cluster_size=4):
         for chrom in self.chroms:
             self.threshold_chrom(chrom, fdr=fdr, cluster_size=cluster_size)
