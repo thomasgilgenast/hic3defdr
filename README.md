@@ -8,14 +8,21 @@ Installation
 
 We require Python 2.7 and the dependencies listed in `setup.py`.
 
-A typical install process should be:
+A typical quick install process should be:
+
+    $ virtualenv venv
+    $ source venv/bin/activate
+    (venv)$ pip install numpy
+    (venv)$ pip install git+https://<username>@bitbucket.org/creminslab/fast3defdr.git
+
+A typical dev-mode install process should be:
 
     $ git clone https://<username>@bitbucket.org/creminslab/fast3defdr.git
     $ cd fast3defdr
     $ virtualenv venv
     $ source venv/bin/activate
     (venv)$ pip install numpy
-    (venv)$ pip install -e .  # for dev mode install (currently recommended)
+    (venv)$ pip install -e .
 
 If installation succeeded then `fast3defdr.Fast3DeFDR` should be importable from
 an interactive shell started in some other directory:
