@@ -25,9 +25,56 @@ del get_versions
 
 
 class Fast3DeFDR(object):
+    """
+    Main object for fast3defdr analysis.
+
+    Attributes
+    ----------
+    raw_npz_patterns : list of str
+        File path patterns to ``scipy.sparse`` formatted NPZ files containing
+        raw contact matrices for each replicate, in order. Each file path
+        pattern should contain at least one '<chrom>' which will be replaced
+        with the chromosome name when loading data for specific chromosomes.
+    bias_patterns : list of str
+        File path patterns to ``np.savetxt()`` formatted files containing bias
+        vector information for each replicate, in order. ach file path pattern
+        should contain at least one '<chrom>' which will be replaced with the
+        chromosome name when loading data for specific chromosomes.
+    chroms : list of str
+        List of chromosome names as strings. These names will be substituted in
+        for '<chroms>' in the ``raw_npz_patterns`` and ``bias_patterns``.
+    design : pd.DataFrame or str
+        Pass a DataFrame with boolean dtype whose rows correspond to replicates
+        and columns correspond to conditions. Replicate and condition names will
+        be inferred from the row and column labels, respectively. If you pass a
+        string, the DataFrame will be loaded via
+        ``pd.read_csv(design, index_col=0)``.
+    outdir : str
+        Specify a directory to store the results of the analysis. Two different
+        Fast3DeFDR analyses cannot co-exist in the same directory. The directory
+        will be created if it does not exist.
+    dist_thresh_min, dist_thresh_max : int
+        The minimum and maximum interaction distance (in bin units) to include
+        in the analysis.
+    bias_thresh : float
+        Bins with a bias factor below this threshold or above its reciprocal in
+        any replicate will be filtered out of the analysis.
+    disp_thresh_mean : float
+        Pixels with mean value below this threshold will be filtered out at the
+        dispersion fitting stage.
+    loop_patterns : list of str
+        File path patterns to sparse JSON formatted cluster files representing
+        called loops, in no particular order and not necessarily corresponding
+        to the replicates. Each file path pattern should contain at least one
+        '<chrom>' which will be replaced with the chromosome name when loading
+        data for specific chromosomes.
+    """
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
                  dist_thresh_min=4, dist_thresh_max=1000, bias_thresh=0.1,
                  disp_thresh_mean=5, loop_patterns=None):
+        """
+        Base constructor. See ``help(Fast3DeFDR)`` for details.
+        """
         self.raw_npz_patterns = raw_npz_patterns
         self.bias_patterns = bias_patterns
         self.chroms = chroms
@@ -48,10 +95,33 @@ class Fast3DeFDR(object):
 
     @classmethod
     def load(cls, outdir):
+        """
+        Loads a Fast3DeFDR analysis object from disk.
+
+        It is safe to have multiple instances of the same analysis open at once.
+
+        Parameters
+        ----------
+        outdir : str
+            Folder path to where the Fast3DeFDR was saved.
+
+        Returns
+        -------
+        Fast3DeFDR
+            The loaded object.
+        """
         with open('%s/pickle' % outdir, 'rb') as handle:
             return pickle.load(handle)
 
     def process_chrom(self, chrom):
+        """
+        Processes on chromosome through p-values.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to process.
+        """
         print('processing chrom %s' % chrom)
         print('  loading bias')
         bias = np.array([np.loadtxt(pattern.replace('<chrom>', chrom))
@@ -150,10 +220,20 @@ class Fast3DeFDR(object):
         np.save('%s/pvalues_%s.npy' % (self.outdir, chrom), pvalues)
 
     def process_all(self):
+        """
+        Processes all chromosomes through p-values in series.
+        """
         for chrom in self.chroms:
             self.process_chrom(chrom)
 
     def bh(self):
+        """
+        Applies BH-FDR control to p-values across all chromosomes to obtain
+        q-values.
+
+        Should only be run after all chromosomes have been processed through
+        p-values.
+        """
         if self.loop_patterns:
             pvalues = [np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))[
                            np.load('%s/loop_idx_%s.npy' % (self.outdir, chrom))]
@@ -169,6 +249,22 @@ class Fast3DeFDR(object):
             offset += len(pvalues[i])
 
     def threshold_chrom(self, chrom, fdr=0.05, cluster_size=4):
+        """
+        Thresholds and clusters significantly differential pixels on one
+        chromosome.
+
+        Should only be run after q-values have been obtained.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to threshold.
+        fdr : float or list of float
+            The FDR to threshold on. Pass a list to do a sweep in series.
+        cluster_size : int or list of int
+            Clusters smaller than this size will be filtered out. Pass a list to
+            do a sweep in series.
+        """
         print('thresholding and clustering chrom %s' % chrom)
         # load everything
         row = np.load('%s/row_%s.npy' % (self.outdir, chrom))
@@ -211,11 +307,43 @@ class Fast3DeFDR(object):
                               (self.outdir, chrom, f, s))
 
     def threshold_all(self, fdr=0.05, cluster_size=4):
+        """
+        Thresholds and clusters significantly differential pixels on all
+        chromosomes in series.
+
+        Should only be run after q-values have been obtained.
+
+        Parameters
+        ----------
+        fdr : float or list of float
+            The FDR to threshold on. Pass a list to do a sweep in series.
+        cluster_size : int or list of int
+            Clusters smaller than this size will be filtered out. Pass a list to
+            do a sweep in series.
+        """
         for chrom in self.chroms:
             self.threshold_chrom(chrom, fdr=fdr, cluster_size=cluster_size)
 
     @plotter
     def plot_dd_curve(self, chrom, log=True, **kwargs):
+        """
+        Plots the distance dependence curve before and after size factor
+        adjustment.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to plot the curve for.
+        log : bool
+            Whether or not to log the axes of the plot.
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis
+            The axis plotted on.
+        """
         # load everything
         row = np.load('%s/row_%s.npy' % (self.outdir, chrom))
         col = np.load('%s/col_%s.npy' % (self.outdir, chrom))
@@ -257,6 +385,24 @@ class Fast3DeFDR(object):
 
     @plotter
     def plot_dispersion_fit(self, chrom, cond, **kwargs):
+        """
+        Plots a hexbin plot of pixel-wise mean vs variance, overlaying the
+        Poisson line and the mean-variance relationship represented by the
+        fitted dispersion.
+
+        Parameters
+        ----------
+        chrom, cond : str
+            The name of the chromosome and condition, respectively, to plot the
+            fit for.
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis
+            The axis plotted on.
+        """
         # load everything
         scaled = np.load('%s/scaled_%s.npy' % (self.outdir, chrom))[
                  np.load('%s/disp_idx_%s.npy' % (self.outdir, chrom)), :]
@@ -290,6 +436,24 @@ class Fast3DeFDR(object):
 
     @plotter
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
+        """
+        Plots the p-value distribution across all chromosomes.
+
+        Parameters
+        ----------
+        idx : {'disp', 'loop'}
+            Pass 'disp' to plot p-values for all points for which dispersion was
+            estimated. Pass 'loop' to plot p-values for all points which are in
+            loops (available only if ``loop_patterns`` was passed to the
+            constructor).
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis
+            The axis plotted on.
+        """
         # load everything
         if idx == 'loop':
             pvalues = [np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))[
@@ -308,6 +472,19 @@ class Fast3DeFDR(object):
 
     @plotter
     def plot_qvalue_distribution(self, **kwargs):
+        """
+        Plots the q-value distribution across all chromosomes.
+
+        Parameters
+        ----------
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis
+            The axis plotted on.
+        """
         # load everything
         qvalues = [np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
                    for chrom in self.chroms]
@@ -318,8 +495,37 @@ class Fast3DeFDR(object):
         plt.ylabel('number of pixels')
 
     @plotter
-    def plot_grid(self, chrom, i, j, w, fdr=0.05, cluster_size=4, despine=False,
-                  **kwargs):
+    def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=4,
+                  despine=False, **kwargs):
+        """
+        Plots a combination visualization grid focusing on a specific pixel on a
+        specific chromosome, combining heatmaps, cluster outlines, and
+        stripplots.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to slice matrices from.
+        i, j : int
+            The row and column index of the pixel to focus on.
+        w : int
+            The size of the heatmap will be ``2*w`` bins in each dimension.
+        vmax : float
+            The maximum of the colorscale to use when plotting normalized
+            heatmaps.
+        fdr : float
+            The FDR threshold to use when outlining clusters.
+        cluster_size : int
+            The cluster size threshold to use when outlining clusters.
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis, function
+            The function takes two args, an FDR and a cluster size, and redraws
+            the cluster outlines using the new parameters.
+        """
         # load everything
         row = np.load('%s/row_%s.npy' % (self.outdir, chrom))
         col = np.load('%s/col_%s.npy' % (self.outdir, chrom))
@@ -358,7 +564,7 @@ class Fast3DeFDR(object):
                 select_matrix(
                     rs, cs, row[disp_idx], col[disp_idx],
                     mu_hat_alt[:, np.where(self.design.values[:, c])[0][0]]),
-                cmap=red, interpolation='none', vmin=0, vmax=100)
+                cmap=red, interpolation='none', vmin=0, vmax=vmax)
             ax[c, 0].set_ylabel(self.design.columns[c])
             ax_idx = 1
             for r in range(self.design.shape[0]):
@@ -366,7 +572,7 @@ class Fast3DeFDR(object):
                     continue
                 ax[c, ax_idx].imshow(
                     select_matrix(rs, cs, row, col, scaled[:, r]),
-                    cmap=red, interpolation='none', vmin=0, vmax=100)
+                    cmap=red, interpolation='none', vmin=0, vmax=vmax)
                 ax[c, ax_idx].set_title(self.design.index[r])
                 ax_idx += 1
         ax[0, 0].set_title('alt model mean')

@@ -8,7 +8,7 @@ Installation
 
 We require Python 2.7 and the dependencies listed in `setup.py`.
 
-Currently, we depend on `hiclite>=0.0.2` which is not on PyPi and therefore must
+Currently, we depend on `hiclite>=0.0.2` which is not on PyPI and therefore must
 be installed manually.
 
 A typical install process should be:
@@ -91,10 +91,25 @@ comfortably in memory.
 Intermediates and final output files
 ------------------------------------
 
-All intermediates used in the computation will be saved to the disk in the
-`outdir` folder.
+All intermediates used in the computation will be saved to the disk inside the
+`outdir` folder as `<intermediate>_<chrom>.npy`
 
-TODO: describe the intermediates
+| Intermediate  | Shape                      | Description                                 |
+|---------------|----------------------------|---------------------------------------------|
+| `row`         | `(n_pixels,)`              | Top-level row index                         |
+| `col`         | `(n_pixels,)`              | Top-level column index                      |
+| `bias`        | `(n_bins, n_reps)`         | Bias vectors                                |
+| `raw`         | `(n_pixels, n_reps)`       | Raw data                                    |
+| `size`        | `(n_reps,)`                | Size factors                                |
+| `scaled`      | `(n_pixels, n_reps)`       | Normalized data                             |
+| `disp_idx`    | `(n_pixels,)`              | Marks pixels for which dispersion is fitted |
+| `disp`        | `(n_reps,)`                | Dispersion parameters                       |
+| `mu_hat_null` | `(disp_idx.sum(),)`        | Null model mean parameters                  |
+| `mu_hat_alt`  | `(disp_idx.sum(), n_reps)` | Alternative model mean parameters           |
+| `llr`         | `(disp_idx.sum(),)`        | Log-likelihood ratio                        |
+| `pvalues`     | `(disp_idx.sum(),)`        | LRT-based p-value                           |
+| `loop_idx`    | `(disp_idx.sum(),)`        | Marks pixels which lie in loops             |
+| `qvalues`     | `(loop_idx.sum(),)`        | BH-corrected q-values                       |
 
 TODO: add a tsv-style output file
 
