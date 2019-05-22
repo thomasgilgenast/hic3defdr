@@ -2,3 +2,5 @@
 *.egg-info
 .idea
 test
+build
+dist

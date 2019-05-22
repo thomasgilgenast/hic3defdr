@@ -286,14 +286,15 @@ class Fast3DeFDR(object):
             insig_idx = qvalues >= f
 
             # gather and cluster sig and insig points
+            n = max(row.max(), col.max())+1  # guess matrix shape
             sig_points = sparse.coo_matrix(
                 (np.ones(sig_idx.sum(), dtype=bool),
                  (row[disp_idx][loop_idx][sig_idx],
-                  col[disp_idx][loop_idx][sig_idx])))
+                  col[disp_idx][loop_idx][sig_idx])), shape=(n, n))
             insig_points = sparse.coo_matrix(
                 (np.ones(insig_idx.sum().sum(), dtype=bool),
                  (row[disp_idx][loop_idx][insig_idx],
-                  col[disp_idx][loop_idx][insig_idx])))
+                  col[disp_idx][loop_idx][insig_idx])), shape=(n, n))
             for s in cluster_size:
                 sig_clusters = [c for c in find_clusters(sig_points)
                                 if len(c) > s]
