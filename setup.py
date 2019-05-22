@@ -27,7 +27,6 @@ setup(
         'seaborn>=0.8.0',
         'pandas>=0.21.0',
         'lib5c>=0.5.3',
-        'hiclite>=0.0.2',
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',

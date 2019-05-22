@@ -8,9 +8,6 @@ Installation
 
 We require Python 2.7 and the dependencies listed in `setup.py`.
 
-Currently, we depend on `hiclite>=0.0.2` which is not on PyPI and therefore must
-be installed manually.
-
 A typical install process should be:
 
     $ git clone https://<username>@bitbucket.org/creminslab/fast3defdr.git
@@ -18,7 +15,6 @@ A typical install process should be:
     $ virtualenv venv
     $ source venv/bin/activate
     (venv)$ pip install numpy
-    (venv)$ pip install https://www.dropbox.com/s/478tfs7osyzwro7/hiclite-0.0.2-py2-none-any.whl?dl=1
     (venv)$ pip install -e .  # for dev mode install (currently recommended)
 
 If installation succeeded then `fast3defdr.Fast3DeFDR` should be importable from

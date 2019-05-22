@@ -13,11 +13,11 @@ from lib5c.util.statistics import adjust_pvalues
 from lib5c.util.plotting import plotter
 from lib5c.plotters.colormaps import get_colormap
 from lib5c.plotters.scatter import scatter
-from hiclite.util.clusters import load_clusters, find_clusters, save_clusters, \
-    clusters_to_coo
 
 from fast3defdr.util import sparse_intersection, select_matrix, dilate
 from fast3defdr.scaled_nb import logpmf, fit_mu_hat, mvr
+from fast3defdr.clusters import load_clusters, find_clusters, save_clusters, \
+    clusters_to_coo
 
 from ._version import get_versions
 __version__ = get_versions()['version']
