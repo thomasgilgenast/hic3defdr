@@ -99,9 +99,9 @@ All intermediates used in the computation will be saved to the disk inside the
 | `row`         | `(n_pixels,)`              | Top-level row index                         |
 | `col`         | `(n_pixels,)`              | Top-level column index                      |
 | `bias`        | `(n_bins, n_reps)`         | Bias vectors                                |
-| `raw`         | `(n_pixels, n_reps)`       | Raw data                                    |
+| `raw`         | `(n_pixels, n_reps)`       | Raw count values                            |
 | `size`        | `(n_reps,)`                | Size factors                                |
-| `scaled`      | `(n_pixels, n_reps)`       | Normalized data                             |
+| `scaled`      | `(n_pixels, n_reps)`       | Normalized count values                     |
 | `disp_idx`    | `(n_pixels,)`              | Marks pixels for which dispersion is fitted |
 | `disp`        | `(n_reps,)`                | Dispersion parameters                       |
 | `mu_hat_null` | `(disp_idx.sum(),)`        | Null model mean parameters                  |
