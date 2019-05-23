@@ -523,7 +523,10 @@ class Fast3DeFDR(object):
 
         Returns
         -------
-        pyplot axis, function
+        pyplot axis, grid of pyplot axes, function
+            The first pyplot axis returned is injected by ``@plotter``.
+            The grid of pyplot axes is the second return value from the call to
+            ``plt.subplots()`` that is used to create the grid.
             The function takes two args, an FDR and a cluster size, and redraws
             the cluster outlines using the new parameters.
         """
@@ -650,4 +653,4 @@ class Fast3DeFDR(object):
 
         outline_clusters(fdr, cluster_size)
 
-        return outline_clusters
+        return ax, outline_clusters
