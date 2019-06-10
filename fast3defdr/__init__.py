@@ -14,7 +14,8 @@ from lib5c.util.plotting import plotter
 from lib5c.plotters.colormaps import get_colormap
 from lib5c.plotters.scatter import scatter
 
-from fast3defdr.util import sparse_intersection, select_matrix, dilate
+from fast3defdr.util import sparse_intersection, sparse_union, select_matrix, \
+    dilate
 from fast3defdr.scaled_nb import logpmf, fit_mu_hat, mvr
 from fast3defdr.clusters import load_clusters, find_clusters, save_clusters, \
     clusters_to_coo
@@ -59,7 +60,7 @@ class Fast3DeFDR(object):
     bias_thresh : float
         Bins with a bias factor below this threshold or above its reciprocal in
         any replicate will be filtered out of the analysis.
-    disp_thresh_mean : float
+    mean_thresh : float
         Pixels with mean value below this threshold will be filtered out at the
         dispersion fitting stage.
     loop_patterns : list of str
@@ -71,7 +72,7 @@ class Fast3DeFDR(object):
     """
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
                  dist_thresh_min=4, dist_thresh_max=1000, bias_thresh=0.1,
-                 disp_thresh_mean=5, loop_patterns=None):
+                 mean_thresh=5, loop_patterns=None):
         """
         Base constructor. See ``help(Fast3DeFDR)`` for details.
         """
@@ -86,7 +87,7 @@ class Fast3DeFDR(object):
         self.dist_thresh_min = dist_thresh_min
         self.dist_thresh_max = dist_thresh_max
         self.bias_thresh = bias_thresh
-        self.disp_thresh_mean = disp_thresh_mean
+        self.mean_thresh = mean_thresh
         self.loop_patterns = loop_patterns
         self.picklefile = '%s/pickle' % self.outdir
         check_outdir(self.picklefile)
@@ -113,9 +114,161 @@ class Fast3DeFDR(object):
         with open('%s/pickle' % outdir, 'rb') as handle:
             return pickle.load(handle)
 
+    def load_bias(self, chrom):
+        """
+        Loads the bias matrix for one chromosome.
+
+        The rows of the bias matrix correspond to bin indices along the
+        chromosome. The columns correspond to the replicates.
+
+        The bias factors for bins that fail ``bias_thresh`` are set to zero.
+        This is designed so that all pixels in these bins get dropped during
+        union pixel set computation.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to load the bias matrix for.
+
+        Returns
+        -------
+        np.ndarray
+            The bias matrix.
+        """
+        bias = np.array([np.loadtxt(pattern.replace('<chrom>', chrom))
+                         for pattern in self.bias_patterns]).T
+        bias[(np.any(bias < self.bias_thresh, axis=1)) |
+             (np.any(bias > 1./self.bias_thresh, axis=1)), :] = 0
+        return bias
+
+    def load_data(self, name, chrom):
+        """
+        Loads arbitrary data for one chromosome.
+
+        Parameters
+        ----------
+        name : str
+            The name of the data to load.
+        chrom : str
+            The name of the chromosome to load data for.
+
+        Returns
+        -------
+        np.ndarray
+            The loaded data.
+        """
+        return np.load('%s/%s_%s.npy' % (self.outdir, name, chrom))
+
+    def save_data(self, data, name, chrom):
+        """
+        Saves arbitrary data for one chromosome to disk.
+
+        Parameters
+        ----------
+        data : np.ndarray
+            The data to save.
+        name : str
+            The name of the data to save.
+        chrom : str
+            The name of the chromosome to save data for.
+        """
+        np.save('%s/%s_%s.npy' % (self.outdir, name, chrom), data)
+
+    def compute_size_factors(self, chrom):
+        """
+        Computes size factors for one chromosome.
+
+        Saves the size factors to ``<outdir>/size_<chrom>.npy``.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to compute size factors for.
+        """
+        print('computing size factors for chrom %s' % chrom)
+        print('  loading bias')
+        bias = self.load_bias(chrom)
+
+        print('  computing intersection pixel set')
+        row, col = sparse_intersection(
+            [pattern.replace('<chrom>', chrom)
+             for pattern in self.raw_npz_patterns], bias=bias)
+
+        print('  loading balanced data')
+        balanced = np.zeros((len(row), len(self.raw_npz_patterns)), dtype=float)
+        for r, pattern in enumerate(self.raw_npz_patterns):
+            balanced[:, r] = sparse.load_npz(pattern.replace('<chrom>', chrom))\
+                .tocsr()[row, col] / (bias[row, r] * bias[col, r])
+
+        print('  computing size factors')
+        size_factors = np.median(balanced / gmean(balanced, axis=1)[:, None],
+                                 axis=0)
+        assert not np.any(balanced == 0)
+        assert np.all(np.isfinite(size_factors))
+
+        print('  saving size factors to disk')
+        self.save_data(size_factors, 'size_factors', chrom)
+
+    def prepare_data(self, chrom):
+        """
+        Prepares raw and normalized data for one chromosome.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to prepare data for.
+        """
+        print('preparing data for chrom %s' % chrom)
+        print('  loading bias')
+        bias = self.load_bias(chrom)
+
+        print('  loading size_factors')
+        size_factors = self.load_data('size', chrom)
+
+        print('  computing union pixel set')
+        row, col = sparse_union(
+            [pattern.replace('<chrom>', chrom)
+             for pattern in self.raw_npz_patterns],
+            dist_thresh_min=self.dist_thresh_min,
+            dist_thresh_max=self.dist_thresh_max,
+            bias=bias,
+            size_factors=size_factors,
+            mean_thresh=self.mean_thresh
+        )
+
+        print('  loading raw data')
+        raw = np.zeros((len(row), len(self.raw_npz_patterns)), dtype=int)
+        for i, pattern in enumerate(self.raw_npz_patterns):
+            raw[:, i] = sparse.load_npz(pattern.replace('<chrom>', chrom)) \
+                .tocsr()[row, col]
+
+        print('  balancing and scaling')
+        balanced = np.zeros_like(raw, dtype=float)
+        for r in range(self.design.shape[0]):
+            balanced[:, r] = raw[:, r] / (bias[row, r] * bias[col, r])
+        scaled = balanced / size_factors
+        assert np.all(np.isfinite(scaled))
+        assert np.all((bias[row, r] * bias[col, r]) == 0)
+
+        print('  saving data to disk')
+        self.save_data(row, 'row', chrom)
+        self.save_data(col, 'col', chrom)
+        self.save_data(raw, 'raw', chrom)
+        self.save_data(scaled, 'scaled', chrom)
+
+    def estimate_disp(self, chrom):
+        """
+        Estimates dispersion for one chromosome.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to prepare data for.
+        """
+
     def process_chrom(self, chrom):
         """
-        Processes on chromosome through p-values.
+        Processes one chromosome through p-values.
 
         Parameters
         ----------
@@ -170,7 +323,7 @@ class Fast3DeFDR(object):
         mean_wide = np.dot(mean, self.design.T)
         var = np.dot((scaled - mean_wide) ** 2, self.design) / \
             (np.sum(self.design, axis=0).values - 1)
-        disp_idx = np.all((mean > self.disp_thresh_mean) & (var > 0), axis=1)
+        disp_idx = np.all((mean > self.mean_thresh) & (var > 0), axis=1)
         disp = np.mean((var[disp_idx] - mean[disp_idx]) / mean[disp_idx] ** 2,
                        axis=0)
         disp = np.dot(disp, self.design.T)
@@ -426,8 +579,8 @@ class Fast3DeFDR(object):
 
         # plot
         scatter(mean[:, cond_idx], var[:, cond_idx],
-                xlim=(self.disp_thresh_mean, xmax), ylim=(ymin, ymax))
-        xs = np.linspace(self.disp_thresh_mean, xmax, 100)
+                xlim=(self.mean_thresh, xmax), ylim=(ymin, ymax))
+        xs = np.linspace(self.mean_thresh, xmax, 100)
         plt.plot(xs, xs, c='r', label='Poisson')
         plt.plot(xs, mvr(xs, disp[rep_idx]), c='purple',
                  label='estimated overdispersion')

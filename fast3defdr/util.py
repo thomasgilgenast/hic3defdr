@@ -3,7 +3,59 @@ import scipy.sparse as sparse
 from scipy.ndimage import zoom
 
 
-def sparse_intersection(fnames):
+def deconvolute(matrix, bias, invert=False):
+    """
+    Applies bias factors to a sparse matrix.
+
+    Parameters
+    ----------
+    matrix : scipy.sparse.spmatrix
+        The matrix to bias. Will be converted to CSR by this function.
+    bias : np.ndarray
+        The dense bias vector.
+    invert : bool
+        Whether or not to invert the bias before applying it. By default this
+        function multiplies the matrix by the bias.
+
+    Returns
+    -------
+    scipy.sparse.csr_matrix
+        The deconvoluted matrix.
+    """
+    csr = matrix.tocsr()
+    if invert:
+        bias = 1 / bias
+    bias_csr = sparse.diags([bias], [0])
+    biased_csr = bias_csr.dot(csr)
+    biased_csr = biased_csr.dot(bias_csr)
+    return biased_csr
+
+
+def wipe_distances(matrix, min_dist, max_dist):
+    """
+    Eliminates entries from a sparse matrix outside of a specified distance
+    range.
+
+    Parameters
+    ----------
+    matrix : scipy.sparse.spmatrix
+        The matrix to wipe. Will be converted to COO by this function.
+    min_dist, max_dist : int
+        The minimum and maximum distance allowed, respectively, in bin units.
+
+    Returns
+    -------
+    scipy.sparse.coo_matrix
+        The wiped matrix.
+    """
+    coo = matrix.tocoo()
+    dist = coo.col - coo.row
+    coo.data[(dist < min_dist) | (dist > max_dist)] = 0
+    coo.eliminate_zeros()
+    return coo
+
+
+def sparse_intersection(fnames, bias=None):
     """
     Computes the intersection set of (row, col) pairs across multiple sparse
     matrices.
@@ -13,6 +65,9 @@ def sparse_intersection(fnames):
     fnames : list of str
         File paths to sparse matrices loadable by ``scipy.sparse.load_npz()``.
         Will be converted to COO by this function.
+    bias : np.ndarray, optional
+        Pass the bias matrix to drop rows and columns with bias factors of
+        zero in any replicate.
 
     Returns
     -------
@@ -20,9 +75,50 @@ def sparse_intersection(fnames):
         The intersection set of (row, col) pairs.
     """
     csr_sum_coo = reduce(
-        lambda x, y: x + y, ((sparse.load_npz(fname) > 0).astype(int)
-                             for fname in fnames)).tocoo()
+        lambda x, y: x + y,
+        ((deconvolute(sparse.load_npz(fname), bias[:, i]) > 0).astype(int)
+         for i, fname in enumerate(fnames))).tocoo()
     full_idx = csr_sum_coo.data == len(fnames)
+    return csr_sum_coo.row[full_idx], csr_sum_coo.col[full_idx]
+
+
+def sparse_union(fnames, dist_thresh_min=4, dist_thresh_max=1000, bias=None,
+                 size_factors=None,  mean_thresh=5.0):
+    """
+    Computes the intersection set of (row, col) pairs across multiple sparse
+    matrices.
+
+    Parameters
+    ----------
+    fnames : list of str
+        File paths to sparse matrices loadable by ``scipy.sparse.load_npz()``.
+        Will be converted to COO by this function.
+    dist_thresh_min, dist_thresh_max : int
+        The minimum and maximum distance allowed, respectively, in bin units.
+    bias : np.ndarray, optional
+        Rectangular matrix containing bias factors for each bin (rows) and each
+        replicate (columns).
+    size_factors : np.ndarray, optional
+        Size factors for each replicate.
+    mean_thresh : float
+        Minimum mean value (in normalized space) to keep pixels for.
+
+    Returns
+    -------
+    row, col : np.ndarray
+        The union set of (row, col) pairs.
+    """
+    if size_factors is None:
+        size_factors = np.ones(len(fnames))
+    csr_sum_coo = reduce(
+        lambda x, y: x + y,
+        (wipe_distances((deconvolute(sparse.load_npz(fname), bias[:, i],
+                                     invert=True)
+                         if bias is not None else sparse.load_npz(fname))
+                        / size_factors[i], dist_thresh_min, dist_thresh_max)
+         for i, fname in enumerate(fnames))).tocoo()
+    full_idx = (csr_sum_coo.data >= len(fnames)*mean_thresh) \
+        & np.isfinite(csr_sum_coo.data)
     return csr_sum_coo.row[full_idx], csr_sum_coo.col[full_idx]
 
 

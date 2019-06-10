@@ -85,10 +85,7 @@ def fit_mu_hat(x, b, alpha):
                 upper *= 2
                 counter += 1
                 if counter > 100:
-                    #print(x[idx], b[idx], alpha[idx], guess[idx], other_guess)
                     raise ValueError('bracketing interval not found within '
                                      '100 doublings')
-    #idx = ~np.isclose(f(root), 0)
-    #print(x[idx, :], b[idx, :], f(root)[idx])
     assert np.allclose(f(root), 0, atol=1e-5)
     return root
