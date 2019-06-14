@@ -34,7 +34,7 @@ def mvr(mean, disp):
     Parameters
     ----------
     mean, disp : float
-        The mean and dispersion parameters of a NB distribution, respectively.
+        The mean and dispersion of a NB distribution, respectively.
 
     Returns
     -------
@@ -42,6 +42,24 @@ def mvr(mean, disp):
         The variance of that NB distribution.
     """
     return mean + mean**2 * disp
+
+
+def inverse_mvr(mean, var):
+    """
+    Inverse function of the negative binomial fixed-dispersion mean-variance
+    relationship. Vectorized.
+
+    Parameters
+    ----------
+    mean, var : float
+        The mean and variance of a NB distribution, respectively.
+
+    Returns
+    -------
+    float
+        The dispersion of that NB distribution.
+    """
+    return (var-mean) / mean**2
 
 
 def fit_mu_hat(x, b, alpha):

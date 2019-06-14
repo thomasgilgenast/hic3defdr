@@ -83,7 +83,7 @@ def sparse_intersection(fnames, bias=None):
 
 
 def sparse_union(fnames, dist_thresh_min=4, dist_thresh_max=1000, bias=None,
-                 size_factors=None,  mean_thresh=5.0):
+                 size_factors=None,  mean_thresh=0.0):
     """
     Computes the intersection set of (row, col) pairs across multiple sparse
     matrices.
