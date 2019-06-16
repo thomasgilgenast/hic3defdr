@@ -9,6 +9,26 @@ from fast3defdr.dispersion import mme_per_pixel
 
 @plotter
 def plot_variance_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
+    """
+    Plots mean versus pixel-wise, bin-wise, and smoothed dispersion in terms of
+    variance.
+
+    Parameters
+    ----------
+    mean, var : np.ndarray
+        The pixel-wise mean and variance, respectively.
+    disp : np.ndarray
+        The smoothed dispersion estimate for each pixel.
+    mean_per_bin, disp_per_bin : np.ndarray
+        The mean and estimated dispersion, respectively, for each bin.
+    kwargs : kwargs
+        Typical plotter kwargs.
+
+    Returns
+    -------
+    pyplot axis
+        The axis plotted on.
+    """
     # filter out zeros
     pos_idx = (mean > 0) & (var > 0)
     mean = mean[pos_idx]
@@ -39,6 +59,26 @@ def plot_variance_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
 
 @plotter
 def plot_dispersion_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
+    """
+    Plots mean versus pixel-wise, bin-wise, and smoothed dispersion in terms of
+    dispersion.
+
+    Parameters
+    ----------
+    mean, var : np.ndarray
+        The pixel-wise mean and variance, respectively.
+    disp : np.ndarray
+        The smoothed dispersion estimate for each pixel.
+    mean_per_bin, disp_per_bin : np.ndarray
+        The mean and estimated dispersion, respectively, for each bin.
+    kwargs : kwargs
+        Typical plotter kwargs.
+
+    Returns
+    -------
+    pyplot axis
+        The axis plotted on.
+    """
     # filter out zeros
     pos_idx = (mean > 0)
     mean = mean[pos_idx]

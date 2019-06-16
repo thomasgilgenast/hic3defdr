@@ -1,4 +1,5 @@
 import pickle
+import glob
 
 import numpy as np
 import pandas as pd
@@ -10,16 +11,15 @@ from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
 from lib5c.util.plotting import plotter
 from lib5c.plotters.colormaps import get_colormap
-from lib5c.plotters.scatter import scatter
 
 from fast3defdr.matrices import sparse_union, select_matrix, \
     dilate
-from fast3defdr.scaled_nb import mvr
-from fast3defdr.clusters import load_clusters, find_clusters, save_clusters, \
+from fast3defdr.clusters import load_clusters, save_clusters, \
     clusters_to_coo
 from fast3defdr.scaling import median_of_ratios
 from fast3defdr.dispersion import estimate_dispersion
 from fast3defdr.lrt import lrt
+from fast3defdr.thresholding import threshold_on_fdr_and_cluster
 from fast3defdr.plotting.distance_dependence import plot_dd_curves
 from fast3defdr.plotting.histograms import plot_pvalue_histogram
 from fast3defdr.plotting.dispersion import plot_variance_fit, \
@@ -374,11 +374,11 @@ class Fast3DeFDR(object):
         """
         print('thresholding and clustering chrom %s' % chrom)
         # load everything
-        row = self.load_data('row', chrom)
-        col = self.load_data('col', chrom)
         disp_idx = self.load_data('disp_idx', chrom)
         loop_idx = self.load_data('loop_idx', chrom) \
             if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
+        row = self.load_data('row', chrom)[disp_idx][loop_idx]
+        col = self.load_data('col', chrom)[disp_idx][loop_idx]
         qvalues = self.load_data('qvalues', chrom)
 
         # upgrade fdr and cluster_size to list
@@ -388,30 +388,15 @@ class Fast3DeFDR(object):
             cluster_size = [cluster_size]
 
         for f in fdr:
-            # threshold on FDR
-            sig_idx = qvalues < f
-            insig_idx = qvalues >= f
-
-            # gather and cluster sig and insig points
-            n = max(row.max(), col.max()) + 1  # guess matrix shape
-            sig_points = sparse.coo_matrix(
-                (np.ones(sig_idx.sum(), dtype=bool),
-                 (row[disp_idx][loop_idx][sig_idx],
-                  col[disp_idx][loop_idx][sig_idx])), shape=(n, n))
-            insig_points = sparse.coo_matrix(
-                (np.ones(insig_idx.sum().sum(), dtype=bool),
-                 (row[disp_idx][loop_idx][insig_idx],
-                  col[disp_idx][loop_idx][insig_idx])), shape=(n, n))
+            sig_clusters, insig_clusters = threshold_on_fdr_and_cluster(
+                qvalues, row, col, fdr)
             for s in cluster_size:
-                sig_clusters = [c for c in find_clusters(sig_points)
-                                if len(c) > s]
-                insig_clusters = [c for c in find_clusters(insig_points)
-                                  if len(c) > s]
-
-                # save to disk
-                save_clusters(sig_clusters, '%s/sig_%s_%g_%i.json' %
+                # threshold on cluster size and save to disk
+                save_clusters([c for c in sig_clusters if len(c) > s],
+                              '%s/sig_%s_%g_%i.json' %
                               (self.outdir, chrom, f, s))
-                save_clusters(insig_clusters, '%s/insig_%s_%g_%i.json' %
+                save_clusters([c for c in insig_clusters if len(c) > s],
+                              '%s/insig_%s_%g_%i.json' %
                               (self.outdir, chrom, f, s))
 
     def threshold_all(self, fdr=0.05, cluster_size=4):
@@ -573,7 +558,7 @@ class Fast3DeFDR(object):
 
     @plotter
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=4,
-                  despine=False, **kwargs):
+                  **kwargs):
         """
         Plots a combination visualization grid focusing on a specific pixel on a
         specific chromosome, combining heatmaps, cluster outlines, and
@@ -611,15 +596,16 @@ class Fast3DeFDR(object):
         col = np.load('%s/col_%s.npy' % (self.outdir, chrom))
         raw = np.load('%s/raw_%s.npy' % (self.outdir, chrom))
         scaled = np.load('%s/scaled_%s.npy' % (self.outdir, chrom))
-        size_factors = np.load('%s/size_%s.npy' % (self.outdir, chrom))
         disp_idx = np.load('%s/disp_idx_%s.npy' % (self.outdir, chrom))
         loop_idx = np.load('%s/loop_idx_%s.npy' % (self.outdir, chrom)) \
             if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
         mu_hat_alt = np.load('%s/mu_hat_alt_%s.npy' % (self.outdir, chrom))
         mu_hat_null = np.load('%s/mu_hat_null_%s.npy' % (self.outdir, chrom))
         qvalues = np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
-        bias = np.array([np.loadtxt(pattern.replace('<chrom>', chrom))
-                         for pattern in self.bias_patterns]).T
+
+        # TODO: search for and preload clusters
+        n = max(row.max(), col.max())
+        filenames = glob.glob('%s/sig_%s_*.json' % (self.outdir, chrom))
 
         # precompute some things
         f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors

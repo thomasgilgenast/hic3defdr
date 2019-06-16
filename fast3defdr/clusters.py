@@ -62,6 +62,20 @@ class DirectedDisjointSet(object):
 
 
 def find_clusters(sig_points, connectivity=1):
+    """
+
+    Parameters
+    ----------
+    sig_points : scipy.sparse.spmatrix or np.ndarray
+        A boolean matrix indicating which points are significant.
+    connectivity : int
+        The connectivity to use when clustering.
+
+    Returns
+    -------
+    list of set of tuple of int
+        The clusters.
+    """
     spmatrix = sparse.coo_matrix(sig_points)
     structure = generate_binary_structure(2, connectivity)
     xs, ys = np.where(structure)
