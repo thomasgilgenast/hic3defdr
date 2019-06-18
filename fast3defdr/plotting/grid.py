@@ -6,19 +6,79 @@ from lib5c.util.plotting import plotter
 from lib5c.plotters.colormaps import get_colormap
 
 from fast3defdr.matrices import select_matrix, dilate
+from fast3defdr.thresholding import threshold_and_cluster, size_filter
+from fast3defdr.clusters import clusters_to_coo
 
 
 @plotter
 def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
-              disp_idx, loop_idx, design, sig_cluster_csrs, insig_cluster_csrs,
-              fdr, cluster_size, vmax=100, fdr_threshold=0.05, despine=False,
-              **kwargs):
+              disp_idx, loop_idx, design, fdr, cluster_size, vmax=100,
+              fdr_vmid=0.05, despine=False, **kwargs):
+    """
+
+    Parameters
+    ----------
+    i, j : int
+        The row and column index of the pixel to focus on.
+    w : int
+        The size of the heatmap will be ``2*w`` bins in each dimension.
+    row, col : np.ndarray
+        The row and column indices corresponding to the rows of the ``raw`` and
+        ``scaled`` matrices.
+    raw, scaled : np.ndarray
+        The raw and scaled data for each pixel (rows) and each replicate
+        (columns).
+    mu_hat_alt, mu_hat_null : np.ndarray
+        The estimated mean parameter under the alternate and null model,
+        respectively. First dimension is pixels for which dispersion was
+        estimated, whose row and column coordinates in the complete square
+        matrix are given by ``row[disp_idx]`` and ``col[disp_idx]``,
+        respectively. Columns of ``mu_hat_alt`` correspond to conditions, while
+        ``mu_hat_null`` has no second dimension.
+    qvalues : np.ndarray
+        Vector of q-values called per pixel whose dispersion was estimated and
+        which lies in a loop. The row and column coordinates in the complete
+        square matrix are given by ``row[disp_idx][loop_idx]`` and
+        ``col[disp_idx][loop_idx]``, respectively.
+    disp_idx : np.ndarray
+        Boolean matrix indicating which pixels in ``zip(row, col)`` had their
+        dispersion estimated.
+    loop_idx : np.ndarray
+        Boolean matrix indicating which pixels in
+        ``zip(row[disp_idx], col[disp_idx])`` lie within loops.
+    design : pd.DataFrame
+        Pass a DataFrame with boolean dtype whose rows correspond to replicates
+        and whose columns correspond to conditions. Replicate and condition
+        names will be inferred from the row and column labels, respectively.
+    fdr : float
+        The FDR threshold to use when outlining clusters.
+    cluster_size : int
+        The cluster size threshold to use when outlining clusters.
+    vmax : float
+        The maximum of the colorscale to use when plotting normalized
+        heatmaps.
+    fdr_vmid : float
+        The FDR value at the middle of the colorscale used for plotting the
+        q-value heatmap.
+    kwargs : kwargs
+        Typical plotter kwargs.
+
+    Returns
+    -------
+    pyplot axis, grid of pyplot axes, function
+        The first pyplot axis returned is injected by ``@plotter``. The grid of
+        pyplot axes is the second return value from the call to
+        ``plt.subplots()`` that is used to create the grid. The function takes
+        two args, an FDR and a cluster size, and redraws the cluster outlines
+        using the new parameters.
+    """
     # precompute some things
     max_reps = np.max(np.sum(design, axis=0))
     idx = np.where((row[disp_idx] == i) & (col[disp_idx] == j))[0][0]
     extent = [-0.5, 2 * w - 0.5, -0.5, 2 * w - 0.5]
     rs, cs = slice(i - w, i + w), slice(j - w, j + w)
     f = raw[disp_idx] / scaled[disp_idx]
+    n = max(row.max(), col.max())
 
     # plot
     fig, ax = plt.subplots(design.shape[1] + 1, max_reps + 1,
@@ -29,7 +89,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
         select_matrix(
             rs, cs, row[disp_idx][loop_idx], col[disp_idx][loop_idx],
             -np.log10(qvalues)),
-        cmap=bwr, interpolation='none', vmin=0, vmax=-np.log10(fdr_threshold)*2)
+        cmap=bwr, interpolation='none', vmin=0, vmax=-np.log10(fdr_vmid)*2)
     ax[-1, 0].set_title('qvalues')
     for c in range(design.shape[1]):
         ax[c, 0].imshow(
@@ -91,27 +151,38 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     sns.despine(ax=ax[-1, 2])
 
     contours = []
+    clusters = {}
 
     def outline_clusters(fdr, cluster_size):
+        if fdr not in clusters:
+            clusters[fdr] = {}
+            clusters[fdr]['base'] = threshold_and_cluster(
+                qvalues, row, col, fdr)
+        if cluster_size not in clusters[fdr]:
+            clusters[fdr][cluster_size] = dict(zip(
+                ['sig', 'insig'],
+                map(lambda x: clusters_to_coo(size_filter(x, cluster_size),
+                                              (n, n)).tocsr()[rs, cs].toarray(),
+                    clusters[fdr]['base'])
+            ))
         if contours:
             for contour in contours:
                 for coll in contour.collections:
                     coll.remove()
             del contours[:]
-        k = (fdr, cluster_size)
         contours.append(ax[-1, 0].contour(
-            dilate(sig_cluster_csrs[k][rs, cs].toarray(), 2), [0.5],
-            colors='orange', linewidths=3, extent=extent))
+            dilate(clusters[fdr][cluster_size]['sig'], 2),
+            [0.5], colors='orange', linewidths=3, extent=extent))
         contours.append(ax[-1, 0].contour(
-            dilate(insig_cluster_csrs[k][rs, cs].toarray(), 2), [0.5],
-            colors='gray', linewidths=3, extent=extent))
+            dilate(clusters[fdr][cluster_size]['insig'], 2),
+            [0.5], colors='gray', linewidths=3, extent=extent))
         for c in range(design.shape[1]):
             contours.append(ax[c, 0].contour(
-                dilate(sig_cluster_csrs[k][rs, cs].toarray(), 2), [0.5],
-                colors='purple', linewidths=3, extent=extent))
+                dilate(clusters[fdr][cluster_size]['sig'], 2),
+                [0.5], colors='purple', linewidths=3, extent=extent))
             contours.append(ax[c, 0].contour(
-                dilate(insig_cluster_csrs[k][rs, cs].toarray(), 2), [0.5],
-                colors='gray', linewidths=3, extent=extent))
+                dilate(clusters[fdr][cluster_size]['insig'], 2),
+                [0.5], colors='gray', linewidths=3, extent=extent))
 
     outline_clusters(fdr, cluster_size)
 

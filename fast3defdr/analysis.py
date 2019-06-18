@@ -1,29 +1,24 @@
 import pickle
-import glob
 
 import numpy as np
 import pandas as pd
 import scipy.sparse as sparse
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
 from lib5c.util.plotting import plotter
-from lib5c.plotters.colormaps import get_colormap
 
-from fast3defdr.matrices import sparse_union, select_matrix, \
-    dilate
-from fast3defdr.clusters import load_clusters, save_clusters, \
-    clusters_to_coo
+from fast3defdr.matrices import sparse_union
+from fast3defdr.clusters import load_clusters, save_clusters
 from fast3defdr.scaling import median_of_ratios
 from fast3defdr.dispersion import estimate_dispersion
 from fast3defdr.lrt import lrt
-from fast3defdr.thresholding import threshold_on_fdr_and_cluster
+from fast3defdr.thresholding import threshold_and_cluster, size_filter
 from fast3defdr.plotting.distance_dependence import plot_dd_curves
 from fast3defdr.plotting.histograms import plot_pvalue_histogram
 from fast3defdr.plotting.dispersion import plot_variance_fit, \
     plot_dispersion_fit
+from fast3defdr.plotting.grid import plot_grid
 
 
 class Fast3DeFDR(object):
@@ -281,6 +276,14 @@ class Fast3DeFDR(object):
         self.save_data(disp_per_bin, 'disp_per_bin', chrom)
 
     def lrt(self, chrom):
+        """
+        Runs the LRT on one chromosome.
+
+        Parameters
+        ----------
+        chrom : str
+            The name of the chromosome to run the LRT for.
+        """
         print('running LRT for chrom %s' % chrom)
         print('  loading data')
         bias = self.load_bias(chrom)
@@ -294,7 +297,8 @@ class Fast3DeFDR(object):
         print('  computing LRT results')
         f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
         pvalues, llr, mu_hat_null, mu_hat_alt = lrt(
-            raw[disp_idx, :], f, disp, self.design.values)
+            raw[disp_idx, :], f, np.dot(disp, self.design.values.T),
+            self.design.values)
 
         if self.loop_patterns:
             print('  making loop_idx')
@@ -355,7 +359,7 @@ class Fast3DeFDR(object):
                            'qvalues', chrom)
             offset += len(pvalues[i])
 
-    def threshold_chrom(self, chrom, fdr=0.05, cluster_size=4):
+    def threshold_chrom(self, chrom, fdr=0.05, cluster_size=5):
         """
         Thresholds and clusters significantly differential pixels on one
         chromosome.
@@ -388,18 +392,18 @@ class Fast3DeFDR(object):
             cluster_size = [cluster_size]
 
         for f in fdr:
-            sig_clusters, insig_clusters = threshold_on_fdr_and_cluster(
+            sig_clusters, insig_clusters = threshold_and_cluster(
                 qvalues, row, col, fdr)
             for s in cluster_size:
                 # threshold on cluster size and save to disk
-                save_clusters([c for c in sig_clusters if len(c) > s],
+                save_clusters(size_filter(sig_clusters, cluster_size),
                               '%s/sig_%s_%g_%i.json' %
                               (self.outdir, chrom, f, s))
-                save_clusters([c for c in insig_clusters if len(c) > s],
+                save_clusters(size_filter(insig_clusters, cluster_size),
                               '%s/insig_%s_%g_%i.json' %
                               (self.outdir, chrom, f, s))
 
-    def threshold_all(self, fdr=0.05, cluster_size=4):
+    def threshold_all(self, fdr=0.05, cluster_size=5):
         """
         Thresholds and clusters significantly differential pixels on all
         chromosomes in series.
@@ -488,7 +492,8 @@ class Fast3DeFDR(object):
 
         # load everything
         disp_idx = self.load_data('disp_idx', chrom)
-        scaled = self.load_data('scaled', chrom)[disp_idx, self.design[cond]]
+        scaled = self.load_data('scaled', chrom)\
+            [disp_idx, :][:, self.design[cond]]
         disp = self.load_data('disp', chrom)[:, cond_idx]
         cov_per_bin = self.load_data('cov_per_bin', chrom)[:, cond_idx]
         disp_per_bin = self.load_data('disp_per_bin', chrom)[:, cond_idx]
@@ -557,8 +562,8 @@ class Fast3DeFDR(object):
             np.concatenate(qvalues), xlabel='qvalue', **kwargs)
 
     @plotter
-    def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=4,
-                  **kwargs):
+    def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=5,
+                  fdr_vmid=0.05, despine=False, **kwargs):
         """
         Plots a combination visualization grid focusing on a specific pixel on a
         specific chromosome, combining heatmaps, cluster outlines, and
@@ -579,6 +584,9 @@ class Fast3DeFDR(object):
             The FDR threshold to use when outlining clusters.
         cluster_size : int
             The cluster size threshold to use when outlining clusters.
+        fdr_vmid : float
+            The FDR value at the middle of the colorscale used for plotting the
+            q-value heatmap.
         kwargs : kwargs
             Typical plotter kwargs.
 
@@ -603,117 +611,7 @@ class Fast3DeFDR(object):
         mu_hat_null = np.load('%s/mu_hat_null_%s.npy' % (self.outdir, chrom))
         qvalues = np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
 
-        # TODO: search for and preload clusters
-        n = max(row.max(), col.max())
-        filenames = glob.glob('%s/sig_%s_*.json' % (self.outdir, chrom))
-
-        # precompute some things
-        f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
-        max_reps = np.max(np.sum(self.design, axis=0))
-        idx = np.where((row[disp_idx] == i) & (col[disp_idx] == j))[0][0]
-        extent = [-0.5, 2 * w - 0.5, -0.5, 2 * w - 0.5]
-        rs, cs = slice(i - w, i + w), slice(j - w, j + w)
-
-        # plot
-        fig, ax = plt.subplots(self.design.shape[1] + 1, max_reps + 1,
-                               figsize=(self.design.shape[1] * 6, max_reps * 6))
-        bwr = get_colormap('bwr', set_bad='g')
-        red = get_colormap('Reds', set_bad='g')
-        ax[-1, 0].imshow(
-            select_matrix(
-                rs, cs, row[disp_idx][loop_idx], col[disp_idx][loop_idx],
-                -np.log10(qvalues)),
-            cmap=bwr, interpolation='none', vmin=0, vmax=-np.log10(fdr) * 2)
-        ax[-1, 0].set_title('qvalues')
-        for c in range(self.design.shape[1]):
-            ax[c, 0].imshow(
-                select_matrix(
-                    rs, cs, row[disp_idx], col[disp_idx],
-                    mu_hat_alt[:, np.where(self.design.values[:, c])[0][0]]),
-                cmap=red, interpolation='none', vmin=0, vmax=vmax)
-            ax[c, 0].set_ylabel(self.design.columns[c])
-            ax_idx = 1
-            for r in range(self.design.shape[0]):
-                if not self.design.values[r, c]:
-                    continue
-                ax[c, ax_idx].imshow(
-                    select_matrix(rs, cs, row, col, scaled[:, r]),
-                    cmap=red, interpolation='none', vmin=0, vmax=vmax)
-                ax[c, ax_idx].set_title(self.design.index[r])
-                ax_idx += 1
-        ax[0, 0].set_title('alt model mean')
-        for r in range(self.design.shape[1] + 1):
-            for c in range(max_reps + 1):
-                ax[r, c].get_xaxis().set_ticks([])
-                ax[r, c].get_yaxis().set_ticks([])
-                if r == self.design.shape[1] and c == 0:
-                    break
-
-        sns.stripplot(data=[scaled[disp_idx, :][idx, self.design.values[:, c]]
-                            for c in range(self.design.shape[1])], ax=ax[-1, 1])
-        for c in range(self.design.shape[1]):
-            ax[-1, 1].hlines(
-                mu_hat_alt[idx, np.where(self.design.values[:, c])[0][0]],
-                c - 0.1, c + 0.1, color='C%i' % c,
-                label='alt' if c == 0 else None)
-            ax[-1, 1].hlines(
-                mu_hat_null[idx], c - 0.1, c + 0.1, color='C%i' % c,
-                linestyles='--', label='null' if c == 0 else None)
-        ax[-1, 1].set_xticklabels(self.design.columns.tolist())
-        ax[-1, 1].set_title('normalized values')
-        ax[-1, 1].set_xlabel('condition')
-        ax[-1, 1].legend()
-        sns.despine(ax=ax[-1, 1])
-
-        sns.stripplot(
-            data=[[raw[disp_idx, :][idx, r]]
-                  for r in range(self.design.shape[0])],
-            palette=['C%i' % c for c in np.where(self.design)[1]], ax=ax[-1, 2])
-        for r in range(self.design.shape[0]):
-            ax[-1, 2].hlines(
-                mu_hat_alt[idx, r] * f[idx, r], r - 0.1, r + 0.1,
-                color='C%i' % np.where(self.design)[1][r],
-                label='alt' if r == 0 else None)
-            ax[-1, 2].hlines(
-                mu_hat_null[idx] * f[idx, r], r - 0.1, r + 0.1,
-                color='C%i' % np.where(self.design)[1][r], linestyles='--',
-                label='null' if r == 0 else None)
-        ax[-1, 2].set_xticklabels(self.design.index.tolist())
-        ax[-1, 2].set_title('raw values')
-        ax[-1, 2].set_xlabel('replicate')
-        ax[-1, 2].legend()
-        sns.despine(ax=ax[-1, 2])
-
-        contours = []
-
-        def outline_clusters(fdr, cluster_size):
-            sig_cluster_csr = clusters_to_coo(
-                load_clusters('%s/sig_%s_%g_%i.json' %
-                              (self.outdir, chrom, fdr, cluster_size)),
-                (bias.shape[0], bias.shape[0])).tocsr()
-            insig_cluster_csr = clusters_to_coo(
-                load_clusters('%s/insig_%s_%g_%i.json' %
-                              (self.outdir, chrom, fdr, cluster_size)),
-                (bias.shape[0], bias.shape[0])).tocsr()
-            if contours:
-                for contour in contours:
-                    for coll in contour.collections:
-                        coll.remove()
-                del contours[:]
-            contours.append(ax[-1, 0].contour(
-                dilate(sig_cluster_csr[rs, cs].toarray(), 2), [0.5],
-                colors='orange', linewidths=3, extent=extent))
-            contours.append(ax[-1, 0].contour(
-                dilate(insig_cluster_csr[rs, cs].toarray(), 2), [0.5],
-                colors='gray', linewidths=3, extent=extent))
-            for c in range(self.design.shape[1]):
-                contours.append(ax[c, 0].contour(
-                    dilate(sig_cluster_csr[rs, cs].toarray(), 2), [0.5],
-                    colors='purple', linewidths=3, extent=extent))
-                contours.append(ax[c, 0].contour(
-                    dilate(insig_cluster_csr[rs, cs].toarray(), 2), [0.5],
-                    colors='gray', linewidths=3, extent=extent))
-
-        outline_clusters(fdr, cluster_size)
-
-        return ax, outline_clusters
+        return plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt,
+                         mu_hat_null, qvalues, disp_idx, loop_idx, self.design,
+                         fdr, cluster_size, vmax=vmax, fdr_vmid=fdr_vmid,
+                         despine=despine, **kwargs)

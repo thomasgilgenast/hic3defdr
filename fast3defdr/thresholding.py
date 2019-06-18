@@ -4,7 +4,7 @@ import scipy.sparse as sparse
 from fast3defdr.clusters import find_clusters
 
 
-def threshold_on_fdr_and_cluster(qvalues, row, col, fdr):
+def threshold_and_cluster(qvalues, row, col, fdr):
     """
     Thresholds pixels by comparing their q-values to a target FDR and clusters
     the significant and insignificant pixels.
@@ -40,3 +40,22 @@ def threshold_on_fdr_and_cluster(qvalues, row, col, fdr):
     sig_clusters = find_clusters(sig_points)
     insig_clusters = find_clusters(insig_points)
     return sig_clusters, insig_clusters
+
+
+def size_filter(clusters, cluster_size):
+    """
+    Filters out clusters which are smaller than cluster_size.
+
+    Parameters
+    ----------
+    clusters : list of set of tuple of int
+        The clusters to filter.
+    cluster_size : int
+        The minimum size of a cluster needed to pass this filter.
+
+    Returns
+    -------
+    list of set of tuple of int
+        The filtered clusters.
+    """
+    return [c for c in clusters if len(c) >= cluster_size]

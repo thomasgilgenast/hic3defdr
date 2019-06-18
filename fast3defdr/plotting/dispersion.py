@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from lib5c.util.plotting import plotter
 
-from fast3defdr.scaled_nb import mvr
+from fast3defdr.scaled_nb import mvr, inverse_mvr
 from fast3defdr.dispersion import mme_per_pixel
 
 
@@ -49,7 +49,8 @@ def plot_variance_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
     sort_idx = np.argsort(mean)[::len(mean)/100]
     plt.plot(mean[sort_idx], mvr(mean[sort_idx], disp[sort_idx]),
              label=r'smoothed $\hat{\sigma^2}$', color='C2')
-    plt.plot([xmin, xmax], [xmin, xmax], label='Poisson', ls='--', color='C3')
+    plt.plot([xmin, xmax], [xmin, xmax], label='Poisson', linestyle='--',
+             color='C3')
     plt.ylim((ymin, ymax))
     plt.xlim((xmin, xmax))
     plt.xlabel('mean')
@@ -92,7 +93,7 @@ def plot_dispersion_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
     ymax = 2
 
     # compute disp per pixel
-    disp_per_pixel = mme_per_pixel(mean, var)
+    disp_per_pixel = inverse_mvr(mean, var)
 
     # plot
     plt.hexbin(mean, disp_per_pixel, bins='log', xscale='log', cmap='Blues',
@@ -102,10 +103,12 @@ def plot_dispersion_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
     sort_idx = np.argsort(mean)[::len(mean) / 100]
     plt.plot(mean[sort_idx], disp[sort_idx], label=r'smoothed $\hat{\alpha}$',
              color='C2')
-    plt.hlines(0, xmin, xmax, label='Poisson', ls='--', color='C3')
+    plt.hlines(0, xmin, xmax, label='Poisson', linestyle='--', color='C3')
     xs = np.logspace(np.log10(xmin), np.log10(xmax), 100)
-    plt.plot(xs, [mme_per_pixel([[x, x]]) for x in xs], ls='--', color='gray')
-    plt.plot(xs, [mme_per_pixel([[0, 2*x]]) for x in xs], ls='--', color='gray')
+    plt.plot(xs, [mme_per_pixel([[x, x]]) for x in xs], linestyle='--',
+             color='gray')
+    plt.plot(xs, [mme_per_pixel([[0, 2*x]]) for x in xs], linestyle='--',
+             color='gray')
     plt.ylim((ymin, ymax))
     plt.xlim((xmin, xmax))
     plt.xlabel('mean')
