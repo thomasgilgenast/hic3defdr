@@ -34,7 +34,7 @@ def threshold_and_cluster(qvalues, row, col, fdr):
          (row[sig_idx],
           col[sig_idx])), shape=(n, n))
     insig_points = sparse.coo_matrix(
-        (np.ones(insig_idx.sum().sum(), dtype=bool),
+        (np.ones(insig_idx.sum(), dtype=bool),
          (row[insig_idx],
           col[insig_idx])), shape=(n, n))
     sig_clusters = find_clusters(sig_points)

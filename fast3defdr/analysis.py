@@ -1,4 +1,5 @@
 import pickle
+import os
 
 import numpy as np
 import pandas as pd
@@ -13,6 +14,7 @@ from fast3defdr.scaling import median_of_ratios
 from fast3defdr.dispersion import estimate_dispersion
 from fast3defdr.lrt import lrt
 from fast3defdr.thresholding import threshold_and_cluster, size_filter
+from fast3defdr.classification import classify
 from fast3defdr.plotting.distance_dependence import plot_dd_curves
 from fast3defdr.plotting.histograms import plot_pvalue_histogram
 from fast3defdr.plotting.dispersion import plot_variance_fit, \
@@ -398,10 +400,10 @@ class Fast3DeFDR(object):
                 qvalues, row, col, fdr)
             for s in cluster_size:
                 # threshold on cluster size and save to disk
-                save_clusters(size_filter(sig_clusters, cluster_size),
+                save_clusters(size_filter(sig_clusters, s),
                               '%s/sig_%g_%i_%s.json' %
                               (self.outdir, f, s, chrom))
-                save_clusters(size_filter(insig_clusters, cluster_size),
+                save_clusters(size_filter(insig_clusters, s),
                               '%s/insig_%g_%i_%s.json' %
                               (self.outdir, f, s, chrom))
 
@@ -422,6 +424,55 @@ class Fast3DeFDR(object):
         """
         for chrom in self.chroms:
             self.threshold_chrom(chrom, fdr=fdr, cluster_size=cluster_size)
+
+    def classify_sig_pixels(self, chrom, fdr=0.05, cluster_size=5):
+        """
+        Classifies significantly differential pixels according to which
+        condition they are strongest in.
+
+        Parameters
+        ----------
+        chrom : str
+            The chromosome to classify significantly differential pixels on.
+        fdr : float or list of float
+            The FDR threshold used to identify clusters of significantly
+            differential pixels via ``threshold_chrom()``. Pass a list to do a
+            sweep in series.
+        cluster_size : int or list of int
+            The cluster size threshold used to identify clusters of
+            significantly differential pixels via ``threshold_chrom()``. Pass a
+            list to do a sweep in series.
+        """
+        # load everything
+        row = self.load_data('row', chrom)
+        col = self.load_data('col', chrom)
+        mu_hat_alt = self.load_data('mu_hat_alt', chrom)
+        disp_idx = self.load_data('disp_idx', chrom)
+        loop_idx = self.load_data('loop_idx', chrom) \
+            if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
+
+        # upgrade fdr and cluster_size to list
+        if not hasattr(fdr, '__len__'):
+            fdr = [fdr]
+        if not hasattr(cluster_size, '__len__'):
+            cluster_size = [cluster_size]
+
+        for f in fdr:
+            for s in cluster_size:
+                infile = '%s/sig_%g_%i_%s.json' % (self.outdir, f, s, chrom)
+                if not os.path.isfile(infile):
+                    self.threshold_chrom(chrom, fdr=f, cluster_size=s)
+                sig_clusters = load_clusters(infile)
+                class_clusters = classify(
+                    row[disp_idx][loop_idx],
+                    col[disp_idx][loop_idx],
+                    mu_hat_alt[loop_idx],
+                    sig_clusters
+                )
+                for i, c in enumerate(class_clusters):
+                    save_clusters(
+                        c, '%s/%s_%g_%i_%s.json' %
+                           (self.outdir, self.design.columns[i], f, s, chrom))
 
     def plot_dd_curves(self, chrom, log=True, **kwargs):
         """

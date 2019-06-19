@@ -63,6 +63,7 @@ class DirectedDisjointSet(object):
 
 def find_clusters(sig_points, connectivity=1):
     """
+    Finds clusters of adjacent True points in a boolean matrix.
 
     Parameters
     ----------
