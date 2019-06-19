@@ -37,20 +37,23 @@ def plot_variance_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
 
     # determine reasonable plot limits
     xmin = 5  # 1
-    xmax = np.percentile(mean, 99.9)
-    ymin = np.percentile(var, 0.00001)
-    ymax = np.percentile(var, 99.99999)
+    xmax = np.percentile(mean, 99.99)
+    ymin = np.percentile(var, 0.01)
+    ymax = np.percentile(var, 99.99)
+
+    # compute var per bin
+    var_per_bin = mvr(mean_per_bin, disp_per_bin)
 
     # plot
     plt.hexbin(mean, var, bins='log', xscale='log', yscale='log', cmap='Blues',
                extent=np.log10([xmin, xmax, ymin, ymax]))
-    plt.scatter(mean_per_bin, disp_per_bin, label=r'$\hat{\sigma^2}$ per bin',
+    plt.scatter(mean_per_bin, var_per_bin, label=r'$\hat{\sigma^2}$ per bin',
                 color='C1')
     sort_idx = np.argsort(mean)[::len(mean)/100]
     plt.plot(mean[sort_idx], mvr(mean[sort_idx], disp[sort_idx]),
-             label=r'smoothed $\hat{\sigma^2}$', color='C2')
+             label=r'smoothed $\hat{\sigma^2}$', linewidth=3, color='C4')
     plt.plot([xmin, xmax], [xmin, xmax], label='Poisson', linestyle='--',
-             color='C3')
+             linewidth=3, color='C3')
     plt.ylim((ymin, ymax))
     plt.xlim((xmin, xmax))
     plt.xlabel('mean')
@@ -88,7 +91,7 @@ def plot_dispersion_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
 
     # determine reasonable plot limits
     xmin = 5  # 1
-    xmax = np.percentile(mean, 99.9)
+    xmax = np.percentile(mean, 99.99)
     ymin = -0.2  # -1
     ymax = 2
 
@@ -102,15 +105,16 @@ def plot_dispersion_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
                 color='C1')
     sort_idx = np.argsort(mean)[::len(mean) / 100]
     plt.plot(mean[sort_idx], disp[sort_idx], label=r'smoothed $\hat{\alpha}$',
-             color='C2')
-    plt.hlines(0, xmin, xmax, label='Poisson', linestyle='--', color='C3')
+             linewidth=3, color='C4')
+    plt.hlines(0, xmin, xmax, label='Poisson', linestyle='--', linewidth=3,
+               color='C3')
     xs = np.logspace(np.log10(xmin), np.log10(xmax), 100)
     plt.plot(xs, [mme_per_pixel([[x, x]]) for x in xs], linestyle='--',
-             color='gray')
+             linewidth=3, color='gray')
     plt.plot(xs, [mme_per_pixel([[0, 2*x]]) for x in xs], linestyle='--',
-             color='gray')
+             linewidth=3, color='gray')
     plt.ylim((ymin, ymax))
     plt.xlim((xmin, xmax))
     plt.xlabel('mean')
     plt.ylabel('dispersion')
-    plt.legend(loc='lower right')
+    plt.legend(loc='upper right')

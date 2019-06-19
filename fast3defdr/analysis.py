@@ -6,7 +6,6 @@ import scipy.sparse as sparse
 
 from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
-from lib5c.util.plotting import plotter
 
 from fast3defdr.matrices import sparse_union
 from fast3defdr.clusters import load_clusters, save_clusters
@@ -400,11 +399,11 @@ class Fast3DeFDR(object):
             for s in cluster_size:
                 # threshold on cluster size and save to disk
                 save_clusters(size_filter(sig_clusters, cluster_size),
-                              '%s/sig_%s_%g_%i.json' %
-                              (self.outdir, chrom, f, s))
+                              '%s/sig_%g_%i_%s.json' %
+                              (self.outdir, f, s, chrom))
                 save_clusters(size_filter(insig_clusters, cluster_size),
-                              '%s/insig_%s_%g_%i.json' %
-                              (self.outdir, chrom, f, s))
+                              '%s/insig_%g_%i_%s.json' %
+                              (self.outdir, f, s, chrom))
 
     def threshold_all(self, fdr=0.05, cluster_size=5):
         """
@@ -507,7 +506,6 @@ class Fast3DeFDR(object):
 
         return plot_fn(mean, var, disp, cov_per_bin, disp_per_bin, **kwargs)
 
-    @plotter
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """
         Plots the p-value distribution across all chromosomes.
@@ -541,7 +539,6 @@ class Fast3DeFDR(object):
         # plot
         return plot_pvalue_histogram(np.concatenate(pvalues), **kwargs)
 
-    @plotter
     def plot_qvalue_distribution(self, **kwargs):
         """
         Plots the q-value distribution across all chromosomes.
@@ -564,7 +561,6 @@ class Fast3DeFDR(object):
         return plot_pvalue_histogram(
             np.concatenate(qvalues), xlabel='qvalue', **kwargs)
 
-    @plotter
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=5,
                   fdr_vmid=0.05, despine=False, **kwargs):
         """

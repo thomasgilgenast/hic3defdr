@@ -158,7 +158,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
         if fdr not in clusters:
             clusters[fdr] = {}
             clusters[fdr]['base'] = threshold_and_cluster(
-                qvalues, row, col, fdr)
+                qvalues, row[disp_idx][loop_idx], col[disp_idx][loop_idx], fdr)
         if cluster_size not in clusters[fdr]:
             clusters[fdr][cluster_size] = dict(zip(
                 ['sig', 'insig'],
