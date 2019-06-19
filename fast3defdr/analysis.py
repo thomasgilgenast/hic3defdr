@@ -363,7 +363,7 @@ class Fast3DeFDR(object):
                            'qvalues', chrom)
             offset += len(pvalues[i])
 
-    def threshold_chrom(self, chrom, fdr=0.05, cluster_size=5):
+    def threshold_chrom(self, chrom, fdr=0.05, cluster_size=4):
         """
         Thresholds and clusters significantly differential pixels on one
         chromosome.
@@ -407,7 +407,7 @@ class Fast3DeFDR(object):
                               '%s/insig_%g_%i_%s.json' %
                               (self.outdir, f, s, chrom))
 
-    def threshold_all(self, fdr=0.05, cluster_size=5):
+    def threshold_all(self, fdr=0.05, cluster_size=4):
         """
         Thresholds and clusters significantly differential pixels on all
         chromosomes in series.
@@ -425,7 +425,7 @@ class Fast3DeFDR(object):
         for chrom in self.chroms:
             self.threshold_chrom(chrom, fdr=fdr, cluster_size=cluster_size)
 
-    def classify_sig_pixels(self, chrom, fdr=0.05, cluster_size=5):
+    def classify_sig_pixels(self, chrom, fdr=0.05, cluster_size=4):
         """
         Classifies significantly differential pixels according to which
         condition they are strongest in.
@@ -612,7 +612,7 @@ class Fast3DeFDR(object):
         return plot_pvalue_histogram(
             np.concatenate(qvalues), xlabel='qvalue', **kwargs)
 
-    def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=5,
+    def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=4,
                   fdr_vmid=0.05, despine=False, **kwargs):
         """
         Plots a combination visualization grid focusing on a specific pixel on a

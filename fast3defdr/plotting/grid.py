@@ -8,6 +8,7 @@ from lib5c.plotters.colormaps import get_colormap
 from fast3defdr.matrices import select_matrix, dilate
 from fast3defdr.thresholding import threshold_and_cluster, size_filter
 from fast3defdr.clusters import clusters_to_coo
+from fast3defdr.classification import classify
 
 
 @plotter
@@ -81,6 +82,9 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     n = max(row.max(), col.max())
     mu_hat_alt = np.dot(mu_hat_alt, design.values.T)
 
+    # set the color cycle over conditions
+    cc = ['purple', 'C6', 'C9', 'C5', 'C1', 'C8']
+
     # plot
     fig, ax = plt.subplots(design.shape[1] + 1, max_reps + 1,
                            figsize=(design.shape[1] * 6, max_reps * 6))
@@ -121,10 +125,10 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     for c in range(design.shape[1]):
         ax[-1, 1].hlines(
             mu_hat_alt[idx, np.where(design.values[:, c])[0][0]],
-            c - 0.1, c + 0.1, color='C%i' % c,
+            c - 0.1, c + 0.1, color=cc[c % len(cc)],
             label='alt' if c == 0 else None)
         ax[-1, 1].hlines(
-            mu_hat_null[idx], c - 0.1, c + 0.1, color='C%i' % c,
+            mu_hat_null[idx], c - 0.1, c + 0.1, color=cc[c % len(cc)],
             linestyles='--', label='null' if c == 0 else None)
     ax[-1, 1].set_xticklabels(design.columns.tolist())
     ax[-1, 1].set_title('normalized values')
@@ -139,11 +143,11 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     for r in range(design.shape[0]):
         ax[-1, 2].hlines(
             mu_hat_alt[idx, r] * f[idx, r], r - 0.1, r + 0.1,
-            color='C%i' % np.where(design)[1][r],
+            color=cc[np.where(design)[1][r] % len(cc)],
             label='alt' if r == 0 else None)
         ax[-1, 2].hlines(
             mu_hat_null[idx] * f[idx, r], r - 0.1, r + 0.1,
-            color='C%i' % np.where(design)[1][r], linestyles='--',
+            color=cc[np.where(design)[1][r] % len(cc)], linestyles='--',
             label='null' if r == 0 else None)
     ax[-1, 2].set_xticklabels(design.index.tolist())
     ax[-1, 2].set_title('raw values')
@@ -161,30 +165,49 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
                 qvalues, row[disp_idx][loop_idx], col[disp_idx][loop_idx], fdr)
         if cluster_size not in clusters[fdr]:
             clusters[fdr][cluster_size] = dict(zip(
-                ['sig', 'insig'],
+                range(design.shape[1]),
                 map(lambda x: clusters_to_coo(size_filter(x, cluster_size),
                                               (n, n)).tocsr()[rs, cs].toarray(),
-                    clusters[fdr]['base'])
+                    classify(
+                        row[disp_idx][loop_idx],
+                        col[disp_idx][loop_idx],
+                        mu_hat_alt[loop_idx],
+                        size_filter(clusters[fdr]['base'][0], cluster_size)
+                    ))
             ))
+            clusters[fdr][cluster_size]['insig'] = clusters_to_coo(
+                size_filter(clusters[fdr]['base'][1], cluster_size),
+                (n, n)).tocsr()[rs, cs].toarray()
         if contours:
             for contour in contours:
                 for coll in contour.collections:
                     coll.remove()
             del contours[:]
-        contours.append(ax[-1, 0].contour(
-            dilate(clusters[fdr][cluster_size]['sig'], 2),
-            [0.5], colors='orange', linewidths=3, extent=extent))
-        contours.append(ax[-1, 0].contour(
-            dilate(clusters[fdr][cluster_size]['insig'], 2),
-            [0.5], colors='gray', linewidths=3, extent=extent))
         for c in range(design.shape[1]):
-            contours.append(ax[c, 0].contour(
-                dilate(clusters[fdr][cluster_size]['sig'], 2),
-                [0.5], colors='purple', linewidths=3, extent=extent))
-            contours.append(ax[c, 0].contour(
+            contour = ax[-1, 0].contour(
+                dilate(clusters[fdr][cluster_size][c], 2),
+                [0.5], colors=cc[c % len(cc)], linewidths=3, extent=extent)
+            contour.collections[0].set_label(design.columns[c])
+            contours.append(contour)
+        contour = ax[-1, 0].contour(
+            dilate(clusters[fdr][cluster_size]['insig'], 2),
+            [0.5], colors='gray', linewidths=3, extent=extent)
+        contour.collections[0].set_label('constitutive')
+        contours.append(contour)
+        for cond_idx in range(design.shape[1]):
+            for c in range(design.shape[1]):
+                contour = ax[cond_idx, 0].contour(
+                    dilate(clusters[fdr][cluster_size][c], 2),
+                    [0.5], colors=cc[c % len(cc)], linewidths=3, extent=extent)
+                contour.collections[0].set_label(design.columns[c])
+                contours.append(contour)
+            contour = ax[cond_idx, 0].contour(
                 dilate(clusters[fdr][cluster_size]['insig'], 2),
-                [0.5], colors='gray', linewidths=3, extent=extent))
+                [0.5], colors='gray', linewidths=3, extent=extent)
+            contour.collections[0].set_label('constitutive')
+            contours.append(contour)
 
     outline_clusters(fdr, cluster_size)
+    ax[-1, 0].legend(loc='lower left')
 
     return ax, outline_clusters
