@@ -81,7 +81,6 @@ def fit_mu_hat(x, b, alpha):
     float
         The MLE of the mean parameter.
     """
-    print 'hi'
     assert np.all((alpha > 0) & np.isfinite(alpha))
     assert np.all((x >= 0) & np.isfinite(x))
     assert np.all((b > 0) & np.isfinite(b))
@@ -96,8 +95,8 @@ def fit_mu_hat(x, b, alpha):
     failed[root <= 0] = True  # fail points with negative mu
     failed[root >= np.sqrt(np.finfo(float).max) / 1e10] = True  # these overflow
     failed[~np.isclose(f(root), 0)] = True  # these aren't close
-    for idx in np.where(failed)[0]:
-        print('fixing failed point %s/%s' % (idx, failed.sum()))
+    for i, idx in enumerate(np.where(failed)[0]):
+        print('fixing failed point %s/%s' % (i+1, failed.sum()))
         lower = 10 * np.finfo(float).eps
         upper = np.mean(x[idx] / b[idx])
         counter = 0

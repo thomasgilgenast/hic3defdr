@@ -36,7 +36,7 @@ def plot_variance_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
     disp = disp[pos_idx]
 
     # determine reasonable plot limits
-    xmin = 1
+    xmin = 5  # 1
     xmax = np.percentile(mean, 99.9)
     ymin = np.percentile(var, 0.00001)
     ymax = np.percentile(var, 99.99999)
@@ -87,9 +87,9 @@ def plot_dispersion_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
     disp = disp[pos_idx]
 
     # determine reasonable plot limits
-    xmin = 1
+    xmin = 5  # 1
     xmax = np.percentile(mean, 99.9)
-    ymin = -1
+    ymin = -0.2  # -1
     ymax = 2
 
     # compute disp per pixel

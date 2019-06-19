@@ -207,7 +207,8 @@ class Fast3DeFDR(object):
                                          bias[row, r] * bias[col, r])
 
         print('  computing size factors')
-        size_factors = median_of_ratios(balanced)
+        zero_idx = np.all(balanced > 0, axis=1)
+        size_factors = median_of_ratios(balanced[zero_idx, :])
         scaled = balanced / size_factors
 
         print('  saving data to disk')
@@ -243,7 +244,9 @@ class Fast3DeFDR(object):
 
         print('  computing pixel-wise mean per condition')
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
-        disp_idx = np.any(mean > self.mean_thresh, axis=1)
+        # TODO: double check that we need this to be np.all()
+        #disp_idx = np.any(mean > self.mean_thresh, axis=1)
+        disp_idx = np.all(mean > self.mean_thresh, axis=1)
 
         if trend == 'dist':
             row = self.load_data('row', chrom)[disp_idx]

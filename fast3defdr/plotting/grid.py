@@ -79,6 +79,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     rs, cs = slice(i - w, i + w), slice(j - w, j + w)
     f = raw[disp_idx] / scaled[disp_idx]
     n = max(row.max(), col.max())
+    mu_hat_alt = np.dot(mu_hat_alt, design.values.T)
 
     # plot
     fig, ax = plt.subplots(design.shape[1] + 1, max_reps + 1,

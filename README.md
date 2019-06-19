@@ -62,7 +62,7 @@ and loop cluster files in sparse JSON format) and use those to construct a
     ...     loop_patterns=[base_path + 'clusters/%s_<chrom>.json' % c for c in ['ES', 'NPC']]
     ... )
 
-This object saves itself to disk, so it can be re-loaded at any time
+This object saves itself to disk, so it can be re-loaded at any time:
 
     >>> f = Fast3DeFDR.load('output')
 
@@ -80,7 +80,7 @@ q-values:
 
     >>> f.bh()
 
-We can then threshold and cluster the significantly differential loops
+We can then threshold and cluster the significantly differential loops:
 
     >>> f.threshold_all(fdr=0.05, cluster_size=4)
 
@@ -97,22 +97,22 @@ Intermediates and final output files
 All intermediates used in the computation will be saved to the disk inside the
 `outdir` folder as `<intermediate>_<chrom>.npy`
 
-| Intermediate  | Shape                      | Description                                 |
-|---------------|----------------------------|---------------------------------------------|
-| `row`         | `(n_pixels,)`              | Top-level row index                         |
-| `col`         | `(n_pixels,)`              | Top-level column index                      |
-| `bias`        | `(n_bins, n_reps)`         | Bias vectors                                |
-| `raw`         | `(n_pixels, n_reps)`       | Raw count values                            |
-| `size`        | `(n_reps,)`                | Size factors                                |
-| `scaled`      | `(n_pixels, n_reps)`       | Normalized count values                     |
-| `disp_idx`    | `(n_pixels,)`              | Marks pixels for which dispersion is fitted |
-| `disp`        | `(n_reps,)`                | Dispersion parameters                       |
-| `mu_hat_null` | `(disp_idx.sum(),)`        | Null model mean parameters                  |
-| `mu_hat_alt`  | `(disp_idx.sum(), n_reps)` | Alternative model mean parameters           |
-| `llr`         | `(disp_idx.sum(),)`        | Log-likelihood ratio                        |
-| `pvalues`     | `(disp_idx.sum(),)`        | LRT-based p-value                           |
-| `loop_idx`    | `(disp_idx.sum(),)`        | Marks pixels which lie in loops             |
-| `qvalues`     | `(loop_idx.sum(),)`        | BH-corrected q-values                       |
+| Intermediate   | Shape                       | Description                                 |
+|----------------|-----------------------------|---------------------------------------------|
+| `row`          | `(n_pixels,)`               | Top-level row index                         |
+| `col`          | `(n_pixels,)`               | Top-level column index                      |
+| `bias`         | `(n_bins, n_reps)`          | Bias vectors                                |
+| `raw`          | `(n_pixels, n_reps)`        | Raw count values                            |
+| `size_factors` | `(n_reps,)`                 | Size factors                                |
+| `scaled`       | `(n_pixels, n_reps)`        | Normalized count values                     |
+| `disp_idx`     | `(n_pixels,)`               | Marks pixels for which dispersion is fitted |
+| `disp`         | `(disp_idx.sum(), n_conds)` | Dispersion parameters                       |
+| `mu_hat_null`  | `(disp_idx.sum(),)`         | Null model mean parameters                  |
+| `mu_hat_alt`   | `(disp_idx.sum(), n_conds)` | Alternative model mean parameters           |
+| `llr`          | `(disp_idx.sum(),)`         | Log-likelihood ratio                        |
+| `pvalues`      | `(disp_idx.sum(),)`         | LRT-based p-value                           |
+| `loop_idx`     | `(disp_idx.sum(),)`         | Marks pixels which lie in loops             |
+| `qvalues`      | `(loop_idx.sum(),)`         | BH-corrected q-values                       |
 
 TODO: add a tsv-style output file
 
