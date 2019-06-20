@@ -35,7 +35,7 @@ def classify(row, col, value, clusters):
     classes = np.argmax(value[idx, :], axis=1)
 
     # re-cluster each class
-    n = max(row.max(), col.max())
+    n = max(row.max(), col.max()) + 1
     class_clusters = []
     for c in range(value.shape[1]):
         coo = sparse.coo_matrix(

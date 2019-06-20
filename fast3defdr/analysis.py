@@ -172,15 +172,20 @@ class Fast3DeFDR(object):
         """
         np.save('%s/%s_%s.npy' % (self.outdir, name, chrom), data)
 
-    def prepare_data(self, chrom):
+    def prepare_data(self, chrom=None):
         """
-        Prepares raw and normalized data for one chromosome.
+        Prepares raw and normalized data for analysis.
 
         Parameters
         ----------
         chrom : str
-            The name of the chromosome to prepare raw data for.
+            The name of the chromosome to prepare raw data for. Pass None to run
+            for all chromosomes in series.
         """
+        if chrom is None:
+            for chrom in self.chroms:
+                self.prepare_data(chrom=chrom)
+            return
         print('preparing data for chrom %s' % chrom)
         print('  loading bias')
         bias = self.load_bias(chrom)
@@ -219,14 +224,16 @@ class Fast3DeFDR(object):
         self.save_data(size_factors, 'size_factors', chrom)
         self.save_data(scaled, 'scaled', chrom)
 
-    def estimate_disp(self, chrom, estimator='cml', trend='mean', n_bins=100):
+    def estimate_disp(self, chrom=None, estimator='cml', trend='mean',
+                      n_bins=100):
         """
-        Estimates dispersion for one chromosome.
+        Estimates dispersion parameters.
 
         Parameters
         ----------
         chrom : str
-            The name of the chromosome to prepare data for.
+            The name of the chromosome to prepare data for. Pass None to run for
+            all chromosomes in series.
         estimator : 'cml', 'mme', or a function
             Pass 'cml' or 'mme' to use conditional maximum likelihood or method
             of moments estimation, respectively, to estimate the dispersion
@@ -239,6 +246,11 @@ class Fast3DeFDR(object):
         n_bins : int
             Number of bins to use during dispersion estimation.
         """
+        if chrom is None:
+            for chrom in self.chroms:
+                self.estimate_disp(chrom=chrom, estimator=estimator,
+                                   trend=trend, n_bins=n_bins)
+            return
         print('estimating dispersion for chrom %s' % chrom)
         print('  loading scaled data')
         scaled = self.load_data('scaled', chrom)
@@ -279,15 +291,20 @@ class Fast3DeFDR(object):
         self.save_data(cov_per_bin, 'cov_per_bin', chrom)
         self.save_data(disp_per_bin, 'disp_per_bin', chrom)
 
-    def lrt(self, chrom):
+    def lrt(self, chrom=None):
         """
-        Runs the LRT on one chromosome.
+        Runs the likelihood ratio test to test for differential interactions.
 
         Parameters
         ----------
         chrom : str
-            The name of the chromosome to run the LRT for.
+            The name of the chromosome to run the LRT for. Pass None to run for
+            all chromosomes in series.
         """
+        if chrom is None:
+            for chrom in self.chroms:
+                self.lrt(chrom=chrom)
+            return
         print('running LRT for chrom %s' % chrom)
         print('  loading data')
         bias = self.load_bias(chrom)
@@ -320,26 +337,6 @@ class Fast3DeFDR(object):
         self.save_data(mu_hat_null, 'mu_hat_null', chrom)
         self.save_data(mu_hat_alt, 'mu_hat_alt', chrom)
 
-    def process_chrom(self, chrom):
-        """
-        Processes one chromosome through p-values.
-
-        Parameters
-        ----------
-        chrom : str
-            The name of the chromosome to process.
-        """
-        self.prepare_data(chrom)
-        self.estimate_disp(chrom)
-        self.lrt(chrom)
-
-    def process_all(self):
-        """
-        Processes all chromosomes through p-values in series.
-        """
-        for chrom in self.chroms:
-            self.process_chrom(chrom)
-
     def bh(self):
         """
         Applies BH-FDR control to p-values across all chromosomes to obtain
@@ -363,23 +360,50 @@ class Fast3DeFDR(object):
                            'qvalues', chrom)
             offset += len(pvalues[i])
 
-    def threshold_chrom(self, chrom, fdr=0.05, cluster_size=4):
+    def run_to_qvalues(self, estimator='cml', trend='mean', n_bins=100):
         """
-        Thresholds and clusters significantly differential pixels on one
-        chromosome.
+        Shortcut method to run the analysis to q-values.
+
+        Parameters
+        ----------
+        estimator : 'cml', 'mme', or a function
+            Pass 'cml' or 'mme' to use conditional maximum likelihood or method
+            of moments estimation, respectively, to estimate the dispersion
+            within each bin. Pass a function that takes in a
+            (pixels, replicates) shaped array of data and returns a dispersion
+            value to use that instead.
+        trend : 'mean' or 'dist'
+            Whether to estimate the dispersion trend with respect to mean or
+            interaction distance.
+        n_bins : int
+            Number of bins to use during dispersion estimation.
+        """
+        self.prepare_data()
+        self.estimate_disp(estimator=estimator, trend=trend, n_bins=n_bins)
+        self.lrt()
+        self.bh()
+
+    def threshold(self, chrom=None, fdr=0.05, cluster_size=3):
+        """
+        Thresholds and clusters significantly differential pixels.
 
         Should only be run after q-values have been obtained.
 
         Parameters
         ----------
         chrom : str
-            The name of the chromosome to threshold.
+            The name of the chromosome to threshold. Pass None to threshold all
+            chromosomes in series.
         fdr : float or list of float
             The FDR to threshold on. Pass a list to do a sweep in series.
         cluster_size : int or list of int
             Clusters smaller than this size will be filtered out. Pass a list to
             do a sweep in series.
         """
+        if chrom is None:
+            for chrom in self.chroms:
+                self.threshold(chrom=chrom, fdr=fdr, cluster_size=cluster_size)
+            return
         print('thresholding and clustering chrom %s' % chrom)
         # load everything
         disp_idx = self.load_data('disp_idx', chrom)
@@ -407,25 +431,7 @@ class Fast3DeFDR(object):
                               '%s/insig_%g_%i_%s.json' %
                               (self.outdir, f, s, chrom))
 
-    def threshold_all(self, fdr=0.05, cluster_size=4):
-        """
-        Thresholds and clusters significantly differential pixels on all
-        chromosomes in series.
-
-        Should only be run after q-values have been obtained.
-
-        Parameters
-        ----------
-        fdr : float or list of float
-            The FDR to threshold on. Pass a list to do a sweep in series.
-        cluster_size : int or list of int
-            Clusters smaller than this size will be filtered out. Pass a list to
-            do a sweep in series.
-        """
-        for chrom in self.chroms:
-            self.threshold_chrom(chrom, fdr=fdr, cluster_size=cluster_size)
-
-    def classify_sig_pixels(self, chrom, fdr=0.05, cluster_size=4):
+    def classify(self, chrom=None, fdr=0.05, cluster_size=3):
         """
         Classifies significantly differential pixels according to which
         condition they are strongest in.
@@ -434,6 +440,7 @@ class Fast3DeFDR(object):
         ----------
         chrom : str
             The chromosome to classify significantly differential pixels on.
+            Pass None to run for all chromosomes in series.
         fdr : float or list of float
             The FDR threshold used to identify clusters of significantly
             differential pixels via ``threshold_chrom()``. Pass a list to do a
@@ -443,6 +450,10 @@ class Fast3DeFDR(object):
             significantly differential pixels via ``threshold_chrom()``. Pass a
             list to do a sweep in series.
         """
+        if chrom is None:
+            for chrom in self.chroms:
+                self.classify(chrom=chrom, fdr=fdr, cluster_size=cluster_size)
+            return
         # load everything
         row = self.load_data('row', chrom)
         col = self.load_data('col', chrom)
@@ -461,7 +472,7 @@ class Fast3DeFDR(object):
             for s in cluster_size:
                 infile = '%s/sig_%g_%i_%s.json' % (self.outdir, f, s, chrom)
                 if not os.path.isfile(infile):
-                    self.threshold_chrom(chrom, fdr=f, cluster_size=s)
+                    self.threshold(chrom=chrom, fdr=f, cluster_size=s)
                 sig_clusters = load_clusters(infile)
                 class_clusters = classify(
                     row[disp_idx][loop_idx],
@@ -612,7 +623,7 @@ class Fast3DeFDR(object):
         return plot_pvalue_histogram(
             np.concatenate(qvalues), xlabel='qvalue', **kwargs)
 
-    def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=4,
+    def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=3,
                   fdr_vmid=0.05, despine=False, **kwargs):
         """
         Plots a combination visualization grid focusing on a specific pixel on a

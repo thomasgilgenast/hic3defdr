@@ -79,7 +79,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     extent = [-0.5, 2 * w - 0.5, -0.5, 2 * w - 0.5]
     rs, cs = slice(i - w, i + w), slice(j - w, j + w)
     f = raw[disp_idx] / scaled[disp_idx]
-    n = max(row.max(), col.max())
+    n = max(row.max(), col.max()) + 1
     mu_hat_alt = np.dot(mu_hat_alt, design.values.T)
 
     # set the color cycle over conditions
