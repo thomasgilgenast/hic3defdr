@@ -15,7 +15,9 @@ def deconvolute(matrix, bias, invert=False):
         The dense bias vector.
     invert : bool
         Whether or not to invert the bias before applying it. By default this
-        function multiplies the matrix by the bias.
+        function multiplies the matrix by the bias. Infinite bias (1 / 0) will
+        be converted to zero bias to allow rows with infinite bias to be dropped
+        from the resulting sparse matrix.
 
     Returns
     -------
@@ -24,7 +26,10 @@ def deconvolute(matrix, bias, invert=False):
     """
     csr = matrix.tocsr()
     if invert:
+        inf_idx = bias == 0
+        bias[inf_idx] = 1
         bias = 1 / bias
+        bias[inf_idx] = 0
     bias_csr = sparse.diags([bias], [0])
     biased_csr = bias_csr.dot(csr)
     biased_csr = biased_csr.dot(bias_csr)
@@ -82,7 +87,7 @@ def sparse_intersection(fnames, bias=None):
     return csr_sum_coo.row[full_idx], csr_sum_coo.col[full_idx]
 
 
-def sparse_union(fnames, dist_thresh_min=4, dist_thresh_max=1000, bias=None,
+def sparse_union(fnames, dist_thresh=1000, bias=None,
                  size_factors=None,  mean_thresh=0.0):
     """
     Computes the intersection set of (row, col) pairs across multiple sparse
@@ -93,8 +98,8 @@ def sparse_union(fnames, dist_thresh_min=4, dist_thresh_max=1000, bias=None,
     fnames : list of str
         File paths to sparse matrices loadable by ``scipy.sparse.load_npz()``.
         Will be converted to COO by this function.
-    dist_thresh_min, dist_thresh_max : int
-        The minimum and maximum distance allowed, respectively, in bin units.
+    dist_thresh : int
+        The maximum distance allowed, respectively, in bin units.
     bias : np.ndarray, optional
         Rectangular matrix containing bias factors for each bin (rows) and each
         replicate (columns).
@@ -115,7 +120,7 @@ def sparse_union(fnames, dist_thresh_min=4, dist_thresh_max=1000, bias=None,
         (wipe_distances((deconvolute(sparse.load_npz(fname), bias[:, i],
                                      invert=True)
                          if bias is not None else sparse.load_npz(fname))
-                        / size_factors[i], dist_thresh_min, dist_thresh_max)
+                        / size_factors[i], 0, dist_thresh)
          for i, fname in enumerate(fnames))).tocoo()
     full_idx = (csr_sum_coo.data >= len(fnames)*mean_thresh) \
         & np.isfinite(csr_sum_coo.data)

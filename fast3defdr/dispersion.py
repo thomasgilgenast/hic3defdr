@@ -111,6 +111,9 @@ def estimate_dispersion(data, cov, estimator='cml', n_bins=100, logx=True):
     cov_per_bin, disp_per_bin : np.ndarray
         Average covariate value and estimated dispersion value, respectively,
         per bin.
+    disp_smooth_func : function
+        Vectorized function that returns a smoothed dispersion given the value
+        of the covariate.
     """
     if type(estimator) == str and estimator not in {'cml', 'mme'}:
         raise ValueError('estimator must be \'cml\', \'mme\' or a function')
@@ -120,9 +123,8 @@ def estimate_dispersion(data, cov, estimator='cml', n_bins=100, logx=True):
     cov_per_bin = np.array([np.mean(cov[bins == b]) for b in range(n_bins)])
     disp_per_bin = np.array([disp_func(data[bins == b, :])
                              for b in range(n_bins)])
-    cov_idx = cov_per_bin > 0 if logx is True \
-        else np.ones_like(cov_per_bin, dtype=bool)
+    cov_idx = cov_per_bin > 0
     disp_smooth_func = lowess_fit(cov_per_bin[cov_idx], disp_per_bin[cov_idx],
                                   left_boundary=None, logx=logx, logy=True)
     smoothed_disp = disp_smooth_func(cov)
-    return smoothed_disp, cov_per_bin, disp_per_bin
+    return smoothed_disp, cov_per_bin, disp_per_bin, disp_smooth_func

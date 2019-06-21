@@ -1,9 +1,9 @@
-import pickle
 import os
 
 import numpy as np
 import pandas as pd
 import scipy.sparse as sparse
+import dill as pickle
 
 from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
@@ -15,6 +15,7 @@ from fast3defdr.dispersion import estimate_dispersion
 from fast3defdr.lrt import lrt
 from fast3defdr.thresholding import threshold_and_cluster, size_filter
 from fast3defdr.classification import classify
+from fast3defdr.simulation import simulate
 from fast3defdr.plotting.distance_dependence import plot_dd_curves
 from fast3defdr.plotting.histograms import plot_pvalue_histogram
 from fast3defdr.plotting.dispersion import plot_variance_fit, \
@@ -172,6 +173,42 @@ class Fast3DeFDR(object):
         """
         np.save('%s/%s_%s.npy' % (self.outdir, name, chrom), data)
 
+    def load_disp_fn(self, cond, chrom):
+        """
+        Loads the fitted dispersion function for a specific condition and
+        chromosome from disk.
+
+        Parameters
+        ----------
+        chrom, cond : str
+            The chromosome and condition to load the dispersion function for.
+
+        Returns
+        -------
+        function
+            Vectorized. Takes in the value of the covariate the dispersion was
+            fitted against and returns the appropriate dispersion.
+        """
+        picklefile = '%s/disp_fn_%s_%s.pickle' % (self.outdir, cond, chrom)
+        with open(picklefile, 'rb') as handle:
+            return pickle.load(handle)
+
+    def save_disp_fn(self, cond, chrom, disp_fn):
+        """
+        Saves the fitted dispersion function for a specific condition and
+        chromosome to disk.
+
+        Parameters
+        ----------
+        chrom, cond : str
+            The chromosome and condition to save the dispersion function for.
+        disp_fn : function
+            The dispersion function to save.
+        """
+        picklefile = '%s/disp_fn_%s_%s.pickle' % (self.outdir, cond, chrom)
+        with open(picklefile, 'wb') as handle:
+            return pickle.dump(disp_fn, handle, -1)
+
     def prepare_data(self, chrom=None):
         """
         Prepares raw and normalized data for analysis.
@@ -194,8 +231,7 @@ class Fast3DeFDR(object):
         row, col = sparse_union(
             [pattern.replace('<chrom>', chrom)
              for pattern in self.raw_npz_patterns],
-            dist_thresh_min=self.dist_thresh_min,
-            dist_thresh_max=self.dist_thresh_max,
+            dist_thresh=self.dist_thresh_max,
             bias=bias
         )
 
@@ -208,9 +244,8 @@ class Fast3DeFDR(object):
         print('  loading balanced data')
         balanced = np.zeros((len(row), len(self.raw_npz_patterns)), dtype=float)
         for r, pattern in enumerate(self.raw_npz_patterns):
-            balanced[:, r] = sparse.load_npz(pattern.replace('<chrom>', chrom)) \
-                                 .tocsr()[row, col] / (
-                                         bias[row, r] * bias[col, r])
+            balanced[:, r] = sparse.load_npz(pattern.replace('<chrom>', chrom))\
+                .tocsr()[row, col] / (bias[row, r] * bias[col, r])
 
         print('  computing size factors')
         zero_idx = np.all(balanced > 0, axis=1)
@@ -256,16 +291,16 @@ class Fast3DeFDR(object):
         scaled = self.load_data('scaled', chrom)
 
         print('  computing pixel-wise mean per condition')
+        row = self.load_data('row', chrom)
+        col = self.load_data('col', chrom)
+        dist = col - row
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
-        # TODO: double check that we need this to be np.all()
-        #disp_idx = np.any(mean > self.mean_thresh, axis=1)
-        disp_idx = np.all(mean > self.mean_thresh, axis=1)
+        disp_idx = np.all(mean > self.mean_thresh, axis=1) & \
+            (dist >= self.dist_thresh_min)
 
         if trend == 'dist':
-            row = self.load_data('row', chrom)[disp_idx]
-            col = self.load_data('col', chrom)[disp_idx]
-            dist = col - row
-            cov = np.broadcast_to(dist, (disp_idx.sum(), self.design.shape[1]))
+            cov = np.broadcast_to(dist[disp_idx],
+                                  (disp_idx.sum(), self.design.shape[1]))
         elif trend == 'mean':
             cov = mean[disp_idx]
         else:
@@ -276,7 +311,7 @@ class Fast3DeFDR(object):
         disp_per_bin = np.zeros((n_bins, self.design.shape[1]))
         for c, cond in enumerate(self.design.columns):
             print('  estimating dispersion for condition %s' % cond)
-            disp[:, c], cov_per_bin[:, c], disp_per_bin[:, c] = \
+            disp[:, c], cov_per_bin[:, c], disp_per_bin[:, c], disp_fn = \
                 estimate_dispersion(
                     scaled[disp_idx, :][:, self.design[cond]],
                     cov=cov[:, c],
@@ -284,6 +319,7 @@ class Fast3DeFDR(object):
                     n_bins=n_bins,
                     logx=True if trend == 'mean' else False
             )
+            self.save_disp_fn(cond, chrom, disp_fn)
 
         print('  saving estimated dispersions to disk')
         self.save_data(disp_idx, 'disp_idx', chrom)
@@ -454,6 +490,7 @@ class Fast3DeFDR(object):
             for chrom in self.chroms:
                 self.classify(chrom=chrom, fdr=fdr, cluster_size=cluster_size)
             return
+        print('classifying differential interactions on chrom %s' % chrom)
         # load everything
         row = self.load_data('row', chrom)
         col = self.load_data('col', chrom)
@@ -484,6 +521,48 @@ class Fast3DeFDR(object):
                     save_clusters(
                         c, '%s/%s_%g_%i_%s.json' %
                            (self.outdir, self.design.columns[i], f, s, chrom))
+
+    def simulate(self, cond, cluster_pattern, chrom=None, beta=0.5, p_diff=0.4,
+                 outdir='sim'):
+        if chrom is None:
+            for chrom in self.chroms:
+                self.simulate(cond, cluster_pattern, chrom=chrom, beta=beta,
+                              p_diff=p_diff, outdir=outdir)
+            return
+        print('simulating data for chrom %s' % chrom)
+        # load everything
+        bias = self.load_bias(chrom)
+        size_factors = self.load_data('size_factors', chrom)
+        row = self.load_data('row', chrom)
+        col = self.load_data('col', chrom)
+        scaled = self.load_data('scaled', chrom)[:, self.design[cond]]
+        disp_fn = self.load_disp_fn(cond, chrom)
+        clusters = load_clusters(cluster_pattern.replace('<chrom>', chrom))
+
+        # compute pixel-wise mean of normalized data
+        mean = np.mean(scaled, axis=1)
+
+        # write design to disk
+        check_outdir('%s/' % outdir)
+        n_sim = len(size_factors)
+        repnames = sum((['%s%i' % (c, i+1) for i in range(n_sim/2)]
+                        for c in ['A', 'B']), [])
+        pd.DataFrame(
+            {'A': [1]*(n_sim/2) + [0]*(n_sim/2),
+             'B': [0]*(n_sim/2) + [1]*(n_sim/2)},
+            dtype=bool,
+            index=repnames
+        ).to_csv('%s/design.csv' % outdir)
+
+        # scramble bias and size_factors
+        bias = bias[:, (np.arange(n_sim)+1) % n_sim]
+        size_factors = size_factors[(np.arange(n_sim)+3) % n_sim]
+
+        # simulate and save
+        sim_iter = simulate(row, col, mean, disp_fn, bias, size_factors,
+                            clusters, beta=beta, p_diff=p_diff)
+        for rep, csr in zip(repnames, sim_iter):
+            sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)
 
     def plot_dd_curves(self, chrom, log=True, **kwargs):
         """
