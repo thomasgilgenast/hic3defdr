@@ -221,3 +221,25 @@ def clusters_to_coo(clusters, shape):
         return sparse.coo_matrix(shape, dtype=bool)
     i, j = zip(*[loop for cluster in clusters for loop in cluster])
     return sparse.coo_matrix((np.ones(len(i), dtype=bool), (i, j)), shape=shape)
+
+
+def clusters_to_pixel_set(clusters):
+    """
+    Converts a list of clusters to a set of pixels.
+
+    This function has no callers and is usually used as a one-liner.
+
+    Parameters
+    ----------
+    clusters : list of list of tuple
+        The outer list is a list of clusters. Each cluster is a list of (i, j)
+        tuples marking the position of significant points which belong to that
+        cluster.
+
+    Returns
+    -------
+    set of tuple
+        Each tuple is of the form (i, j) and marks the position of a significant
+        point in the clustering.
+    """
+    return set().union(*clusters)

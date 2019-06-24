@@ -16,6 +16,7 @@ from fast3defdr.lrt import lrt
 from fast3defdr.thresholding import threshold_and_cluster, size_filter
 from fast3defdr.classification import classify
 from fast3defdr.simulation import simulate
+from fast3defdr.evaluation import make_y_true, evaluate
 from fast3defdr.plotting.distance_dependence import plot_dd_curves
 from fast3defdr.plotting.histograms import plot_pvalue_histogram
 from fast3defdr.plotting.dispersion import plot_variance_fit, \
@@ -61,12 +62,12 @@ class Fast3DeFDR(object):
     mean_thresh : float
         Pixels with mean value below this threshold will be filtered out at the
         dispersion fitting stage.
-    loop_patterns : list of str
-        File path patterns to sparse JSON formatted cluster files representing
-        called loops, in no particular order and not necessarily corresponding
-        to the replicates. Each file path pattern should contain at least one
-        '<chrom>' which will be replaced with the chromosome name when loading
-        data for specific chromosomes.
+    loop_patterns : dict of str
+        Keys should be condition names as strings, values should be file path
+        patterns to sparse JSON formatted cluster files representing called
+        loops in that condition. Each file path pattern should contain at least
+        one '<chrom>' which will be replaced with the chromosome name when
+        loading data for specific chromosomes.
     """
 
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
@@ -359,9 +360,9 @@ class Fast3DeFDR(object):
 
         if self.loop_patterns:
             print('  making loop_idx')
-            loop_pixels = set.union(
+            loop_pixels = set().union(
                 *sum((load_clusters(pattern.replace('<chrom>', chrom))
-                      for pattern in self.loop_patterns), []))
+                      for pattern in self.loop_patterns.values()), []))
             loop_idx = np.array([True if pixel in loop_pixels else False
                                  for pixel in zip(row[disp_idx],
                                                   col[disp_idx])])
@@ -522,12 +523,11 @@ class Fast3DeFDR(object):
                         c, '%s/%s_%g_%i_%s.json' %
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
-    def simulate(self, cond, cluster_pattern, chrom=None, beta=0.5, p_diff=0.4,
-                 outdir='sim'):
+    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, outdir='sim'):
         if chrom is None:
             for chrom in self.chroms:
-                self.simulate(cond, cluster_pattern, chrom=chrom, beta=beta,
-                              p_diff=p_diff, outdir=outdir)
+                self.simulate(cond, chrom=chrom, beta=beta, p_diff=p_diff,
+                              outdir=outdir)
             return
         print('simulating data for chrom %s' % chrom)
         # load everything
@@ -537,32 +537,68 @@ class Fast3DeFDR(object):
         col = self.load_data('col', chrom)
         scaled = self.load_data('scaled', chrom)[:, self.design[cond]]
         disp_fn = self.load_disp_fn(cond, chrom)
-        clusters = load_clusters(cluster_pattern.replace('<chrom>', chrom))
+        clusters = load_clusters(
+            self.loop_patterns[cond].replace('<chrom>', chrom))
 
         # compute pixel-wise mean of normalized data
         mean = np.mean(scaled, axis=1)
 
-        # write design to disk
+        # book keeping
         check_outdir('%s/' % outdir)
         n_sim = len(size_factors)
         repnames = sum((['%s%i' % (c, i+1) for i in range(n_sim/2)]
                         for c in ['A', 'B']), [])
-        pd.DataFrame(
-            {'A': [1]*(n_sim/2) + [0]*(n_sim/2),
-             'B': [0]*(n_sim/2) + [1]*(n_sim/2)},
-            dtype=bool,
-            index=repnames
-        ).to_csv('%s/design.csv' % outdir)
+
+        # write design to disk if not present
+        design_file = '%s/design.csv' % outdir
+        if not os.path.isfile(design_file):
+            pd.DataFrame(
+                {'A': [1]*(n_sim/2) + [0]*(n_sim/2),
+                 'B': [0]*(n_sim/2) + [1]*(n_sim/2)},
+                dtype=bool,
+                index=repnames
+            ).to_csv(design_file)
 
         # scramble bias and size_factors
         bias = bias[:, (np.arange(n_sim)+1) % n_sim]
         size_factors = size_factors[(np.arange(n_sim)+3) % n_sim]
 
         # simulate and save
-        sim_iter = simulate(row, col, mean, disp_fn, bias, size_factors,
-                            clusters, beta=beta, p_diff=p_diff)
+        classes, sim_iter = simulate(
+            row, col, mean, disp_fn, bias, size_factors, clusters, beta=beta,
+            p_diff=p_diff)
+        np.savetxt('%s/labels_%s.txt' % (outdir, chrom), classes, fmt='%s')
         for rep, csr in zip(repnames, sim_iter):
             sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)
+
+    def evaluate(self, cluster_pattern, label_pattern):
+        # resolve case where a condition name was passed to cluster_pattern
+        if cluster_pattern in self.loop_patterns.keys():
+            cluster_pattern = self.loop_patterns[cluster_pattern]
+
+        # make y_true one chrom at a time
+        y_true = []
+        for chrom in self.chroms:
+            disp_idx = self.load_data('disp_idx', chrom)
+            loop_idx = self.load_data('loop_idx', chrom)
+            row = self.load_data('row', chrom)[disp_idx][loop_idx]
+            col = self.load_data('col', chrom)[disp_idx][loop_idx]
+            clusters = load_clusters(cluster_pattern.replace('<chrom>', chrom))
+            labels = np.loadtxt(label_pattern.replace('<chrom>', chrom),
+                                dtype='|S7')
+            y_true.append(make_y_true(row, col, clusters, labels))
+        y_true = np.concatenate(y_true)
+
+        # load qvalues
+        qvalues = np.concatenate([self.load_data('qvalues', chrom)
+                                  for chrom in self.chroms])
+
+        # evaluate and save to disk
+        fdr, fpr, tpr, thresh = evaluate(y_true, qvalues)
+
+        # save to disk
+        np.savez('%s/eval.npz' % self.outdir,
+                 **{'fdr': fdr, 'fpr': fpr, 'tpr': tpr, 'thresh': thresh})
 
     def plot_dd_curves(self, chrom, log=True, **kwargs):
         """
@@ -695,8 +731,7 @@ class Fast3DeFDR(object):
             The axis plotted on.
         """
         # load everything
-        qvalues = [np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
-                   for chrom in self.chroms]
+        qvalues = [self.load_data('qvalues', chrom) for chrom in self.chroms]
 
         # plot
         return plot_pvalue_histogram(

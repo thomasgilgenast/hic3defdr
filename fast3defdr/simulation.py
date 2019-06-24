@@ -8,7 +8,7 @@ from lib5c.util.distributions import freeze_distribution
 from fast3defdr.scaled_nb import mvr
 
 
-def perturb_loop(matrix, cluster, effect):
+def perturb_cluster(matrix, cluster, effect):
     """https://colab.research.google.com/drive/1dk9kX57ZtlxQ3jubrKL_q2r8LZnSlVwY"""
     # come up with a rectangle that covers the cluster with a 1px buffer
     rs, cs = map(np.array, zip(*cluster))
@@ -43,7 +43,7 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
         p=[1 - p_diff, p_diff/4, p_diff/4, p_diff/4, p_diff/4]
     )
 
-    print('  adding loops')
+    print('  perturbing clusters')
     mean_a_lil = sparse.coo_matrix(
         (mean, (row, col)), shape=(bias.shape[0], bias.shape[0])).tolil()
     mean_b_lil = sparse.coo_matrix(
@@ -52,14 +52,13 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     del col
     for i, cluster in enumerate(clusters):
         if classes[i] == 'up A':
-            perturb_loop(mean_a_lil, cluster, beta)
+            perturb_cluster(mean_a_lil, cluster, beta)
         elif classes[i] == 'down A':
-            perturb_loop(mean_a_lil, cluster, -beta)
+            perturb_cluster(mean_a_lil, cluster, -beta)
         elif classes[i] == 'up B':
-            perturb_loop(mean_b_lil, cluster, beta)
+            perturb_cluster(mean_b_lil, cluster, beta)
         elif classes[i] == 'down B':
-            perturb_loop(mean_b_lil, cluster, -beta)
-
+            perturb_cluster(mean_b_lil, cluster, -beta)
     mean_a_csr = mean_a_lil.tocsr()
     mean_b_csr = mean_b_lil.tocsr()
     assert np.all(mean_a_csr.tocoo().data >= 0)
@@ -73,21 +72,28 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     new_col = mean_csr_sum_coo.col
     del mean_csr_sum_coo
 
-    print('  biasing mean matrices')
+    print('  renaming cluster classes')
+    classes[(classes == 'up A') | (classes == 'down B')] = 'A'
+    classes[(classes == 'up B') | (classes == 'down A')] = 'B'
+
+    print('  preparing generator')
     n_sim = len(size_factors)
     mean_a = mean_a_csr[new_row, new_col].A1
     mean_b = mean_b_csr[new_row, new_col].A1
     assert np.all(mean_a >= 0)
     assert np.all(mean_b >= 0)
-    biased_means = [mean*bias[new_row, i]*bias[new_col, i]*size_factors[i] + 0.1
-                    for i, mean in zip(range(n_sim),
-                                       [mean_a]*(n_sim/2) + [mean_b]*(n_sim/2))]
-    assert all(np.all(m > 0) for m in biased_means)
-    del mean_a
-    del mean_b
 
-    print('  simulating')
-    for m in biased_means:
-        yield sparse.coo_matrix(
-            (freeze_distribution(stats.nbinom, m, mvr(m, disp_fn(m))).rvs(),
-             (new_row, new_col)), shape=(bias.shape[0], bias.shape[0])).tocsr()
+    def gen():
+        for j, m in zip(range(n_sim), [mean_a]*(n_sim/2) + [mean_b]*(n_sim/2)):
+            print('  biasing and simulating rep %i/%i' % (j+1, n_sim))
+            # bias mean
+            bm = m*bias[new_row, j]*bias[new_col, j]*size_factors[j] + 0.1
+            assert np.all(bm > 0)
+            # simulate
+            yield sparse.coo_matrix(
+                (freeze_distribution(
+                    stats.nbinom, bm, mvr(bm, disp_fn(bm))).rvs(),
+                 (new_row, new_col)), shape=(bias.shape[0], bias.shape[0]))\
+                .tocsr()
+
+    return classes, gen()

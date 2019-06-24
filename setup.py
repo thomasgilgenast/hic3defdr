@@ -11,6 +11,10 @@ readme_note = """\
 with open('README.md') as fobj:
     long_description = readme_note + fobj.read()
 
+extras_require = {
+    'evaluation': ['scikit-learn>=0.20.3'],
+}
+
 setup(
     name='fast3defdr',
     version=versioneer.get_version(),
@@ -29,6 +33,7 @@ setup(
         'lib5c>=0.5.3',
         'dill>=0.2.9',
     ],
+    extras_require=extras_require,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Console',
