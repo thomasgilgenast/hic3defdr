@@ -260,8 +260,7 @@ class Fast3DeFDR(object):
         self.save_data(size_factors, 'size_factors', chrom)
         self.save_data(scaled, 'scaled', chrom)
 
-    def estimate_disp(self, chrom=None, estimator='cml', trend='mean',
-                      n_bins=100):
+    def estimate_disp(self, chrom=None, estimator='cml', n_bins=100):
         """
         Estimates dispersion parameters.
 
@@ -276,56 +275,43 @@ class Fast3DeFDR(object):
             within each bin. Pass a function that takes in a
             (pixels, replicates) shaped array of data and returns a dispersion
             value to use that instead.
-        trend : 'mean' or 'dist'
-            Whether to estimate the dispersion trend with respect to mean or
-            interaction distance.
         n_bins : int
             Number of bins to use during dispersion estimation.
         """
         if chrom is None:
             for chrom in self.chroms:
                 self.estimate_disp(chrom=chrom, estimator=estimator,
-                                   trend=trend, n_bins=n_bins)
+                                   n_bins=n_bins)
             return
         print('estimating dispersion for chrom %s' % chrom)
-        print('  loading scaled data')
+        print('  loading data')
+        row = self.load_data('row', chrom)
+        col = self.load_data('col', chrom)
         scaled = self.load_data('scaled', chrom)
 
         print('  computing pixel-wise mean per condition')
-        row = self.load_data('row', chrom)
-        col = self.load_data('col', chrom)
         dist = col - row
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
         disp_idx = np.all(mean > self.mean_thresh, axis=1) & \
             (dist >= self.dist_thresh_min)
-
-        if trend == 'dist':
-            cov = np.broadcast_to(dist[disp_idx],
-                                  (disp_idx.sum(), self.design.shape[1]))
-        elif trend == 'mean':
-            cov = mean[disp_idx]
-        else:
-            raise ValueError('trend must be \'mean\' or \'dist\'')
-
         disp = np.zeros((disp_idx.sum(), self.design.shape[1]))
-        cov_per_bin = np.zeros((n_bins, self.design.shape[1]))
+        mean_per_bin = np.zeros((n_bins, self.design.shape[1]))
         disp_per_bin = np.zeros((n_bins, self.design.shape[1]))
         for c, cond in enumerate(self.design.columns):
             print('  estimating dispersion for condition %s' % cond)
-            disp[:, c], cov_per_bin[:, c], disp_per_bin[:, c], disp_fn = \
+            disp[:, c], mean_per_bin[:, c], disp_per_bin[:, c], disp_fn = \
                 estimate_dispersion(
                     scaled[disp_idx, :][:, self.design[cond]],
-                    cov=cov[:, c],
+                    cov=mean[disp_idx, c],
                     estimator=estimator,
-                    n_bins=n_bins,
-                    logx=True if trend == 'mean' else False
+                    n_bins=n_bins
             )
             self.save_disp_fn(cond, chrom, disp_fn)
 
         print('  saving estimated dispersions to disk')
         self.save_data(disp_idx, 'disp_idx', chrom)
         self.save_data(disp, 'disp', chrom)
-        self.save_data(cov_per_bin, 'cov_per_bin', chrom)
+        self.save_data(mean_per_bin, 'mean_per_bin', chrom)
         self.save_data(disp_per_bin, 'disp_per_bin', chrom)
 
     def lrt(self, chrom=None):
@@ -524,6 +510,32 @@ class Fast3DeFDR(object):
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
     def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, outdir='sim'):
+        """
+        Simulates raw contact matrices based on previously fitted scaled means
+        and dispersions in a specific condition.
+
+        This function will only work when the design has exactly two conditions
+        and equal numbers of replicates per condition.
+
+        Can only be run after ``estimate_dispersions()`` has been run.
+
+        Parameters
+        ----------
+        cond : str
+            Name of the condition to base the simulation on.
+        chrom : str, optional
+            Name of the chromosome to simulate. Pass None to simulate all
+            chromosomes in series.
+        beta : float
+            The effect size of the loop perturbations to use when simulating.
+            Perturbed loops will be strengthened or weakened by this fraction of
+            their original strength.
+        p_diff : float
+            This fraction of loops will be perturbed across the simulated
+            conditions. The remainder will be constitutive.
+        outdir : str
+            Path to a directory to store the simulated data to.
+        """
         if chrom is None:
             for chrom in self.chroms:
                 self.simulate(cond, chrom=chrom, beta=beta, p_diff=p_diff,
@@ -572,6 +584,25 @@ class Fast3DeFDR(object):
             sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)
 
     def evaluate(self, cluster_pattern, label_pattern):
+        """
+        Evaluates the results of this analysis, comparing it to true labels.
+
+        Parameters
+        ----------
+        cluster_pattern : str
+            File path pattern to sparse JSON formatted cluster files
+            representing loop cluster locations. Should contain at least one
+            '<chrom>' which will be replaced with the chromosome name when
+            loading data for specific chromosomes. Pass a condition name to use
+            ``self.loop_patterns[cluster_pattern]`` instead.
+        label_pattern : str
+            File path pattern to true label files for each chromosome. Should
+            contain at least one '<chrom>' which will be replaced with the
+            chromosome name when loading data for specific chromosomes. Files
+            should be loadable with ``np.loadtxt(..., dtype='|S7')`` to yield a
+            vector of true labels parallel to the clusters pointed to by
+            ``cluster_pattern``.
+        """
         # resolve case where a condition name was passed to cluster_pattern
         if cluster_pattern in self.loop_patterns.keys():
             cluster_pattern = self.loop_patterns[cluster_pattern]
@@ -674,14 +705,14 @@ class Fast3DeFDR(object):
         scaled = self.load_data('scaled', chrom)\
             [disp_idx, :][:, self.design[cond]]
         disp = self.load_data('disp', chrom)[:, cond_idx]
-        cov_per_bin = self.load_data('cov_per_bin', chrom)[:, cond_idx]
+        mean_per_bin = self.load_data('mean_per_bin', chrom)[:, cond_idx]
         disp_per_bin = self.load_data('disp_per_bin', chrom)[:, cond_idx]
 
         # compute mean and sample variance
         mean = np.mean(scaled, axis=1)
         var = np.var(scaled, ddof=1, axis=1)
 
-        return plot_fn(mean, var, disp, cov_per_bin, disp_per_bin, **kwargs)
+        return plot_fn(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs)
 
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """

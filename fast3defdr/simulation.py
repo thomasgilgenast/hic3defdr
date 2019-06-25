@@ -9,7 +9,26 @@ from fast3defdr.scaled_nb import mvr
 
 
 def perturb_cluster(matrix, cluster, effect):
-    """https://colab.research.google.com/drive/1dk9kX57ZtlxQ3jubrKL_q2r8LZnSlVwY"""
+    """
+    Perturbs a specific cluster in a contact matrix with a given effect.
+
+    Operates in-place.
+
+    Based on a notebook linked here:
+    https://colab.research.google.com/drive/1dk9kX57ZtlxQ3jubrKL_q2r8LZnSlVwY
+
+    Parameters
+    ----------
+    matrix : scipy.sparse.spmatrix
+        The contact matrix. Must support slicing.
+    cluster : list of tuple of int
+        A list of (i, j) tuples marking the position of points which belong to
+        the cluster which we want to perturb.
+    effect : float
+        The effect to apply to the cluster. Values in ``matrix`` under the
+        cluster footprint will be shifted by this proportion of their original
+        value.
+    """
     # come up with a rectangle that covers the cluster with a 1px buffer
     rs, cs = map(np.array, zip(*cluster))
     r_min = max(np.min(rs) - 1, 0)
@@ -36,6 +55,49 @@ def perturb_cluster(matrix, cluster, effect):
 
 def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
              p_diff=0.4):
+    """
+    Simulates raw contact matrices based on ``mean`` and ``disp_fn`` using
+    ``bias`` and ``size_factors`` per simulated replicate and perturbing the
+    loops specified in ``clusters`` with an effect size of ``beta`` and
+    direction chosen at random for ``p_diff`` fraction of clusters.
+
+    Parameters
+    ----------
+    row, col : np.ndarray
+        Row and column indices identifying the location of pixels in ``mean``.
+    mean : np.ndarray
+        Vector of mean values for each pixel to use as a base to simulate from.
+    disp_fn : function
+        Function that returns a dispersion given a mean. Will be used to
+        determine the dispersion values to use during simulation.
+    bias : np.ndarray
+        Rows are bins of the full contact matrix, columns are to-be-simulated
+        replicates. Each column represents the bias vector to use for simulating
+        that replicate.
+    size_factors : np.ndarray
+        Vector of size factors to use for simulating for each to-be-simulated
+        replicate.
+    clusters : list of list of tuple
+        The outer list is a list of clusters which represent the locations of
+        loops. Each cluster is a list of (i, j) tuples marking the position of
+        pixels which belong to that cluster.
+    beta : float
+        The effect size of the loop perturbations to use when simulating.
+        Perturbed loops will be strengthened or weakened by this fraction of
+        their original strength.
+    p_diff : float
+        This fraction of loops will be perturbed across the simulated
+        conditions. The remainder will be constitutive.
+
+    Returns
+    -------
+    classes : np.ndarray
+        Vector of ground-truth class labels used for simulation with '\|S25'
+        dtype.
+    gen : generator of ``scipy.sparse.csr_matrix``
+        Generates the simulated raw contact matrices for each simulated
+        replicate, in order.
+    """
     print('  assigning cluster classes')
     classes = np.random.choice(
         np.array(['constit', 'up A', 'down A', 'up B', 'down B'], dtype='|S7'),

@@ -59,7 +59,7 @@ and loop cluster files in sparse JSON format) and use those to construct a
     ...     chroms=chroms,
     ...     design=design,
     ...     outdir='output',
-    ...     loop_patterns=[base_path + 'clusters/%s_<chrom>_clusters.json' % c for c in ['ES', 'NPC']]
+    ...     loop_patterns={c: base_path + 'clusters/%s_<chrom>_clusters.json' % c for c in ['ES', 'NPC']}
     ... )
 
 This object saves itself to disk, so it can be re-loaded at any time:
@@ -124,7 +124,7 @@ All intermediates used in the computation will be saved to the disk inside the
 | `prepare_data()`  | `size_factors`  | `(n_reps,)`                 | Size factors                                |
 | `prepare_data()`  | `scaled`        | `(n_pixels, n_reps)`        | Normalized count values                     |
 | `estimate_disp()` | `disp_idx`      | `(n_pixels,)`               | Marks pixels for which dispersion is fitted |
-| `estimate_disp()` | `cov_per_bin`   | `(n_bins, n_conds)`         | Average mean count or distance in each bin  |
+| `estimate_disp()` | `mean_per_bin`  | `(n_bins, n_conds)`         | Average mean count in each bin              |
 | `estimate_disp()` | `disp_per_bin`  | `(n_bins, n_conds)`         | Pooled dispersion estimates in each bin     |
 | `estimate_disp()` | `disp`          | `(disp_idx.sum(), n_conds)` | Smoothed dispersion estimates               |
 | `lrt()`           | `mu_hat_null`   | `(disp_idx.sum(),)`         | Null model mean parameters                  |
@@ -222,3 +222,140 @@ thresholds on a live-updating plot by running:
     _, _, outline_clusters = f.plot_grid('chr1', 1303, 1312, 50)
     _ = interact(outline_clusters, fdr=[0.01, 0.05, 0.1, 0.2],
                  cluster_size=[3, 4])
+
+Simulation
+----------
+
+After the `estimate_disp()` step has been run, a Fast3DeFDR object with exactly
+two conditions and an equal number of replicates per condition can be used to
+generate simulations of differential looping.
+
+### Generating simulations
+
+To create an ES-based simulation of chromosome 19, we run
+
+    >>> from fast3defdr import Fast3DeFDR
+    >>>
+    >>> f = Fast3DeFDR.load('output')
+    >>> f.simulate('ES', chrom='chr19')
+
+We are simulating only chromosome 19 for illustrative purposes, but a
+simulation can be generated over all chromosomes by omitting the `chrom` kwarg.
+
+This takes the mean of the real scaled data across the ES replicates and
+perturbs the loops specified in `f.loop_patterns['ES']` up or down at random to
+generate two new conditions called "A" and "B". The scaled mean matrices for
+these conditions are then biased and scaled by the bias vectors and size
+factors taken from the real data, and the ES dispersion function fitted to the
+real ES data is applied to the biased and scaled means to obtain dispersion
+values. These means and dispersions are used to draw an NB random variable for
+each pixel of each simulated replicate. The number of replicates in each of the
+simulated conditions "A" and "B" will match the design of the real analysis.
+
+The simulated raw contact matrices will be written to disk in CSR format as
+`<cond><rep>_<chrom>_raw.npz` where `<cond>` is "A" or "B" and `<rep>` is the
+rep number within the condition. The design matrix will also be written to disk
+as `design.csv`.
+
+The true labels used to perturb the loops will also be written to disk as
+`labels_<chrom>.txt`. This file contains as many lines as there are clusters in
+`f.loop_patterns['ES']`, with the `i`th line providing the label for the `i`th
+cluster. This file can be loaded with `np.loadtxt(..., dtype='|S7')`.
+
+### Evaluating simulations
+
+After generating simulated data, Fast3DeFDR can be run on the simulated data.
+Then, the true labels can be used to evaluate the performance of Fast3DeFDR on
+the simulated data.
+
+Evaluation of simulated data requires scikit-learn. To install this package,
+run
+
+    (venv)$ pip install scikit-learn
+
+In order to run Fast3DeFDR on the simulated data, we first need to balance the
+simulated raw contact matrices to obtain bias vectors for each simulated
+replicate and chromosome. We will assume are saved next to the raw contact
+matrices and named `<rep>_<chrom>_kr.bias`. One example of how this can be done
+is to use the [hiclite library](https://bitbucket.org/creminslab/hiclite) and
+the following script:
+
+```python
+import numpy as np
+import scipy.sparse as sparse
+
+from hiclite.steps.filter import filter_sparse_rows_count
+from hiclite.steps.balance import kr_balance
+
+
+infile_pattern = 'sim/<rep>_<chrom>_raw.npz'
+repnames = ['A1', 'A2', 'B1', 'B2']
+chroms = ['chr19']
+
+for repname in repnames:
+    for chrom in chroms:
+        print(repname, chrom)
+        infile = infile_pattern.replace('<rep>', repname)\
+            .replace('<chrom>', chrom)
+        outfile = infile.replace('_raw.npz', '_kr.bias')
+        _, bias, _ = kr_balance(
+            filter_sparse_rows_count(sparse.load_npz(infile)))
+        np.savetxt(outfile, bias)
+```
+
+Next, we create a new Fast3DeFDR object to analyze the simulated data and run
+the analysis through to q-values:
+
+    >>> from fast3defdr import Fast3DeFDR
+    >>>
+    >>> repnames = ['A1', 'A2', 'B1', 'B2']
+    >>> chroms = ['chr19']
+    >>> sim_path = 'sim/'
+    >>> f_sim = Fast3DeFDR(
+    ...     raw_npz_patterns=[sim_path + '<rep>_<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
+    ...     bias_patterns=[sim_path + '<rep>_<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
+    ...     chroms=chroms,
+    ...     design=sim_path + 'design.csv',
+    ...     outdir='output-sim',
+    ...     loop_patterns={'ES': '.../clusters/ES_<chrom>_clusters.json'}
+    ... )
+    >>> f_sim.run_to_qvalues()
+
+Next, we can evaluate the simulation against the clusters in
+`f_sim.loop_patterns['ES']` with true labels from `sim/labels_<chrom>.txt`:
+
+    >>> f_sim.evaluate('ES', 'sim/labels_<chrom>.txt')
+
+This writes a file in `f_sim`'s output directory called `eval.npz`. This file
+can be loaded with `np.load()` and has four keys whose values are all one
+dimensional vectors:
+
+ - `'thresh'`: the thresholds (in `1 - qvalue` space) which make up the convex
+   edge of the ROC curve; all other vectors are parallel to this one
+ - `'fdr'`: the observed false discovery rate at each threshold
+ - `'tpr'`: the observed true positive rate at each threshold
+ - `'fpr'`: the observed false positive rate at each threshold
+
+`eval.npz` files (possibly across many runs) can be visualized as ROC curves
+and FDR control curves by running:
+
+    >>> import numpy as np
+    >>> from fast3defdr import plot_roc, plot_fdr
+    >>>
+    >>> plot_roc([np.load('output-sim/eval.npz')], ['fast3defdr'], outfile='roc.png')
+    >>> plot_fdr([np.load('output-sim/eval.npz')], ['fast3defdr'], outfile='fdr.png')
+
+![](images/roc.png)
+![](images/fdr.png)
+
+Multiple `eval.npz` files can be compared in the same plot by simply adding
+elements to the lists in these function calls.
+
+The ROC plot shows FPR versus TPR, with the gray diagonal line representing the
+performance of random guessing. The AUROC for each curve is shown in the
+legend. If only one curve is plotted, selected thresholds (in units of FDR) are
+annotated with black arrows.
+
+The FDR control plot shows the observed FDR as a function of the FDR threshold.
+Points below the gray diagonal line represent points at which FDR is
+successfully controlled.

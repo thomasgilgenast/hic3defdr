@@ -14,6 +14,29 @@ except ImportError:
 
 @plotter
 def plot_roc(eval_results, labels, colors=None, **kwargs):
+    """
+    Plots an ROC curve from a list of ``eval.npz``-style results.
+
+    Parameters
+    ----------
+    eval_results : list of dict-like
+        The dicts should have keys 'thresh', 'fpr', and 'tpr' whose values are
+        parallel vectors describing the thresholds, FPR, and TPR to use for the
+        ROC curve. Each dict in the list represents a different ROC curve which
+        will be overlayed in the plot.
+    labels : list of str
+        List of labels parallel to ``eval_results`` providing names for each
+        curve.
+    colors : list of valid matplotlib colors, optional
+        Colors for each ROC curve. Pass None to automatically assign colors.
+    kwargs : kwargs
+        Typical plotter kwargs.
+
+    Returns
+    -------
+    pyplot axis
+        The axis plotted on.
+    """
     # check for sklearn
     if not sklearn_avail:
         raise ImportError('failed to import scikit-learn - is it installed?')

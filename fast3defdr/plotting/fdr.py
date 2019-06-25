@@ -6,6 +6,29 @@ from lib5c.util.plotting import plotter
 
 @plotter
 def plot_fdr(eval_results, labels, colors=None, **kwargs):
+    """
+    Plots an FDR control curve from a list of ``eval.npz``-style results.
+
+    Parameters
+    ----------
+    eval_results : list of dict-like
+        The dicts should have keys 'thresh' and 'fdr' whose values are parallel
+        vectors describing the thresholds and FDRs to use for the FDR control
+        curve. Each dict in the list represents a different FDR control curve
+        which will be overlayed in the plot.
+    labels : list of str
+        List of labels parallel to ``eval_results`` providing names for each
+        curve.
+    colors : list of valid matplotlib colors, optional
+        Colors for each FDR curve. Pass None to automatically assign colors.
+    kwargs : kwargs
+        Typical plotter kwargs.
+
+    Returns
+    -------
+    pyplot axis
+        The axis plotted on.
+    """
     # resolve colors
     if colors is None:
         colors = ['C%i' % i for i in range(len(labels))]
