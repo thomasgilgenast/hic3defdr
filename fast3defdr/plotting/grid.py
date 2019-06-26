@@ -16,6 +16,8 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
               disp_idx, loop_idx, design, fdr, cluster_size, vmax=100,
               fdr_vmid=0.05, despine=False, **kwargs):
     """
+    Plots a combination visualization grid focusing on a specific pixel on a
+    specific chromosome, combining heatmaps, cluster outlines, and stripplots.
 
     Parameters
     ----------
@@ -83,7 +85,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     mu_hat_alt = np.dot(mu_hat_alt, design.values.T)
 
     # set the color cycle over conditions
-    cc = ['purple', 'C6', 'C9', 'C5', 'C1', 'C8']
+    cc = ['blue', 'purple', 'yellow', 'cyan', 'green', 'red']
 
     # plot
     fig, ax = plt.subplots(design.shape[1] + 1, max_reps + 1,
@@ -120,8 +122,12 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
             if r == design.shape[1] and c == 0:
                 break
 
-    sns.stripplot(data=[scaled[disp_idx, :][idx, design.values[:, c]]
-                        for c in range(design.shape[1])], ax=ax[-1, 1])
+    sns.stripplot(
+        data=[scaled[disp_idx, :][idx, design.values[:, c]]
+              for c in range(design.shape[1])],
+        palette=[cc[c % len(cc)] for c in range(design.shape[1])],
+        ax=ax[-1, 1]
+    )
     for c in range(design.shape[1]):
         ax[-1, 1].hlines(
             mu_hat_alt[idx, np.where(design.values[:, c])[0][0]],
@@ -139,7 +145,9 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     sns.stripplot(
         data=[[raw[disp_idx, :][idx, r]]
               for r in range(design.shape[0])],
-        palette=['C%i' % c for c in np.where(design)[1]], ax=ax[-1, 2])
+        palette=[cc[c % len(cc)] for c in np.where(design)[1]],
+        ax=ax[-1, 2]
+    )
     for r in range(design.shape[0]):
         ax[-1, 2].hlines(
             mu_hat_alt[idx, r] * f[idx, r], r - 0.1, r + 0.1,
@@ -173,7 +181,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
                         col[disp_idx][loop_idx],
                         mu_hat_alt[loop_idx],
                         size_filter(clusters[fdr]['base'][0], cluster_size)
-                    ))
+                ))
             ))
             clusters[fdr][cluster_size]['insig'] = clusters_to_coo(
                 size_filter(clusters[fdr]['base'][1], cluster_size),
@@ -191,7 +199,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
             contours.append(contour)
         contour = ax[-1, 0].contour(
             dilate(clusters[fdr][cluster_size]['insig'], 2),
-            [0.5], colors='gray', linewidths=3, extent=extent)
+            [0.5], colors='C7', linewidths=3, extent=extent)
         contour.collections[0].set_label('constitutive')
         contours.append(contour)
         for cond_idx in range(design.shape[1]):
@@ -203,7 +211,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
                 contours.append(contour)
             contour = ax[cond_idx, 0].contour(
                 dilate(clusters[fdr][cluster_size]['insig'], 2),
-                [0.5], colors='gray', linewidths=3, extent=extent)
+                [0.5], colors='C7', linewidths=3, extent=extent)
             contour.collections[0].set_label('constitutive')
             contours.append(contour)
 

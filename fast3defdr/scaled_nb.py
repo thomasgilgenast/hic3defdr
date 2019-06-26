@@ -2,6 +2,8 @@ import numpy as np
 from scipy.special import gammaln
 from scipy.optimize import newton, brentq
 
+from fast3defdr.logging import eprint
+
 
 def logpmf(k, m, phi):
     """
@@ -96,7 +98,7 @@ def fit_mu_hat(x, b, alpha):
     failed[root >= np.sqrt(np.finfo(float).max) / 1e10] = True  # these overflow
     failed[~np.isclose(f(root), 0)] = True  # these aren't close
     for i, idx in enumerate(np.where(failed)[0]):
-        print('fixing failed point %s/%s' % (i+1, failed.sum()))
+        eprint('fixing failed point %s/%s' % (i+1, failed.sum()))
         lower = 10 * np.finfo(float).eps
         upper = np.mean(x[idx] / b[idx])
         counter = 0

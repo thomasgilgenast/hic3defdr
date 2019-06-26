@@ -8,6 +8,7 @@ import dill as pickle
 from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
 
+from fast3defdr.logging import eprint
 from fast3defdr.matrices import sparse_union
 from fast3defdr.clusters import load_clusters, save_clusters
 from fast3defdr.scaling import median_of_ratios
@@ -224,11 +225,11 @@ class Fast3DeFDR(object):
             for chrom in self.chroms:
                 self.prepare_data(chrom=chrom)
             return
-        print('preparing data for chrom %s' % chrom)
-        print('  loading bias')
+        eprint('preparing data for chrom %s' % chrom)
+        eprint('  loading bias')
         bias = self.load_bias(chrom)
 
-        print('  computing union pixel set')
+        eprint('  computing union pixel set')
         row, col = sparse_union(
             [pattern.replace('<chrom>', chrom)
              for pattern in self.raw_npz_patterns],
@@ -236,24 +237,24 @@ class Fast3DeFDR(object):
             bias=bias
         )
 
-        print('  loading raw data')
+        eprint('  loading raw data')
         raw = np.zeros((len(row), len(self.raw_npz_patterns)), dtype=int)
         for i, pattern in enumerate(self.raw_npz_patterns):
             raw[:, i] = sparse.load_npz(pattern.replace('<chrom>', chrom)) \
                 .tocsr()[row, col]
 
-        print('  loading balanced data')
+        eprint('  loading balanced data')
         balanced = np.zeros((len(row), len(self.raw_npz_patterns)), dtype=float)
         for r, pattern in enumerate(self.raw_npz_patterns):
             balanced[:, r] = sparse.load_npz(pattern.replace('<chrom>', chrom))\
                 .tocsr()[row, col] / (bias[row, r] * bias[col, r])
 
-        print('  computing size factors')
+        eprint('  computing size factors')
         zero_idx = np.all(balanced > 0, axis=1)
         size_factors = median_of_ratios(balanced[zero_idx, :])
         scaled = balanced / size_factors
 
-        print('  saving data to disk')
+        eprint('  saving data to disk')
         self.save_data(row, 'row', chrom)
         self.save_data(col, 'col', chrom)
         self.save_data(raw, 'raw', chrom)
@@ -283,13 +284,13 @@ class Fast3DeFDR(object):
                 self.estimate_disp(chrom=chrom, estimator=estimator,
                                    n_bins=n_bins)
             return
-        print('estimating dispersion for chrom %s' % chrom)
-        print('  loading data')
+        eprint('estimating dispersion for chrom %s' % chrom)
+        eprint('  loading data')
         row = self.load_data('row', chrom)
         col = self.load_data('col', chrom)
         scaled = self.load_data('scaled', chrom)
 
-        print('  computing pixel-wise mean per condition')
+        eprint('  computing pixel-wise mean per condition')
         dist = col - row
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
         disp_idx = np.all(mean > self.mean_thresh, axis=1) & \
@@ -298,7 +299,7 @@ class Fast3DeFDR(object):
         mean_per_bin = np.zeros((n_bins, self.design.shape[1]))
         disp_per_bin = np.zeros((n_bins, self.design.shape[1]))
         for c, cond in enumerate(self.design.columns):
-            print('  estimating dispersion for condition %s' % cond)
+            eprint('  estimating dispersion for condition %s' % cond)
             disp[:, c], mean_per_bin[:, c], disp_per_bin[:, c], disp_fn = \
                 estimate_dispersion(
                     scaled[disp_idx, :][:, self.design[cond]],
@@ -308,7 +309,7 @@ class Fast3DeFDR(object):
             )
             self.save_disp_fn(cond, chrom, disp_fn)
 
-        print('  saving estimated dispersions to disk')
+        eprint('  saving estimated dispersions to disk')
         self.save_data(disp_idx, 'disp_idx', chrom)
         self.save_data(disp, 'disp', chrom)
         self.save_data(mean_per_bin, 'mean_per_bin', chrom)
@@ -328,8 +329,8 @@ class Fast3DeFDR(object):
             for chrom in self.chroms:
                 self.lrt(chrom=chrom)
             return
-        print('running LRT for chrom %s' % chrom)
-        print('  loading data')
+        eprint('running LRT for chrom %s' % chrom)
+        eprint('  loading data')
         bias = self.load_bias(chrom)
         size_factors = self.load_data('size_factors', chrom)
         row = self.load_data('row', chrom)
@@ -338,14 +339,14 @@ class Fast3DeFDR(object):
         disp_idx = self.load_data('disp_idx', chrom)
         disp = self.load_data('disp', chrom)
 
-        print('  computing LRT results')
+        eprint('  computing LRT results')
         f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
         pvalues, llr, mu_hat_null, mu_hat_alt = lrt(
             raw[disp_idx, :], f, np.dot(disp, self.design.values.T),
             self.design.values)
 
         if self.loop_patterns:
-            print('  making loop_idx')
+            eprint('  making loop_idx')
             loop_pixels = set().union(
                 *sum((load_clusters(pattern.replace('<chrom>', chrom))
                       for pattern in self.loop_patterns.values()), []))
@@ -354,7 +355,7 @@ class Fast3DeFDR(object):
                                                   col[disp_idx])])
             self.save_data(loop_idx, 'loop_idx', chrom)
 
-        print('  saving results to disk')
+        eprint('  saving results to disk')
         self.save_data(pvalues, 'pvalues', chrom)
         self.save_data(llr, 'llr', chrom)
         self.save_data(mu_hat_null, 'mu_hat_null', chrom)
@@ -368,11 +369,13 @@ class Fast3DeFDR(object):
         Should only be run after all chromosomes have been processed through
         p-values.
         """
-        print('applying BH-FDR correction')
+        eprint('applying BH-FDR correction')
         if self.loop_patterns:
-            pvalues = [self.load_data('pvalues', chrom)[
-                           self.load_data('loop_idx', chrom)]
-                       for chrom in self.chroms]
+            pvalues = [
+                self.load_data('pvalues', chrom)
+                [self.load_data('loop_idx', chrom)]
+                for chrom in self.chroms
+            ]
         else:
             pvalues = [self.load_data('pvalues', chrom)
                        for chrom in self.chroms]
@@ -383,7 +386,7 @@ class Fast3DeFDR(object):
                            'qvalues', chrom)
             offset += len(pvalues[i])
 
-    def run_to_qvalues(self, estimator='cml', trend='mean', n_bins=100):
+    def run_to_qvalues(self, estimator='cml', n_bins=100):
         """
         Shortcut method to run the analysis to q-values.
 
@@ -395,14 +398,11 @@ class Fast3DeFDR(object):
             within each bin. Pass a function that takes in a
             (pixels, replicates) shaped array of data and returns a dispersion
             value to use that instead.
-        trend : 'mean' or 'dist'
-            Whether to estimate the dispersion trend with respect to mean or
-            interaction distance.
         n_bins : int
             Number of bins to use during dispersion estimation.
         """
         self.prepare_data()
-        self.estimate_disp(estimator=estimator, trend=trend, n_bins=n_bins)
+        self.estimate_disp(estimator=estimator, n_bins=n_bins)
         self.lrt()
         self.bh()
 
@@ -427,7 +427,7 @@ class Fast3DeFDR(object):
             for chrom in self.chroms:
                 self.threshold(chrom=chrom, fdr=fdr, cluster_size=cluster_size)
             return
-        print('thresholding and clustering chrom %s' % chrom)
+        eprint('thresholding and clustering chrom %s' % chrom)
         # load everything
         disp_idx = self.load_data('disp_idx', chrom)
         loop_idx = self.load_data('loop_idx', chrom) \
@@ -477,7 +477,7 @@ class Fast3DeFDR(object):
             for chrom in self.chroms:
                 self.classify(chrom=chrom, fdr=fdr, cluster_size=cluster_size)
             return
-        print('classifying differential interactions on chrom %s' % chrom)
+        eprint('classifying differential interactions on chrom %s' % chrom)
         # load everything
         row = self.load_data('row', chrom)
         col = self.load_data('col', chrom)
@@ -541,7 +541,7 @@ class Fast3DeFDR(object):
                 self.simulate(cond, chrom=chrom, beta=beta, p_diff=p_diff,
                               outdir=outdir)
             return
-        print('simulating data for chrom %s' % chrom)
+        eprint('simulating data for chrom %s' % chrom)
         # load everything
         bias = self.load_bias(chrom)
         size_factors = self.load_data('size_factors', chrom)
@@ -732,9 +732,11 @@ class Fast3DeFDR(object):
         """
         # load everything
         if idx == 'loop':
-            pvalues = [np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))[
-                           np.load('%s/loop_idx_%s.npy' % (self.outdir, chrom))]
-                       for chrom in self.chroms]
+            pvalues = [
+                np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))
+                [np.load('%s/loop_idx_%s.npy' % (self.outdir, chrom))]
+                for chrom in self.chroms
+            ]
         elif idx == 'disp':
             pvalues = [np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))
                        for chrom in self.chroms]

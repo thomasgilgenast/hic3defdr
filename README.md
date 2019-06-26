@@ -34,25 +34,38 @@ an interactive shell started in some other directory:
 Basic walkthrough
 -----------------
 
-To analyze the ES_1, ES_3, NPC_2, and NPC_4 reps of the Bonev dataset with
-default parameters, we would first describe the dataset in terms of replicate
-names, chromosome names, and a design matrix:
+To analyze the ES_1, ES_3, NPC_2, and NPC_4 reps of the dataset dataset from
+(Bonev et al. 2017)[https://www.ncbi.nlm.nih.gov/pubmed/29053968] with default
+parameters, we would first describe the dataset in terms of replicate names,
+chromosome names, and a design matrix. We will just analyze chromosomes 18 and
+19 here for illustrative purposes.
 
     >>> import pandas as pd
     >>>
     >>> repnames = ['ES_1', 'ES_3', 'NPC_2', 'NPC_4']
-    >>> chroms = ['chr%i' % i for i in range(1, 20)] + ['chrX']
+    >>> #chroms = ['chr%i' % i for i in range(1, 20)] + ['chrX']
+    >>> chroms = ['chr18', 'chr19']
     >>> design = pd.DataFrame({'ES': [1, 1, 0, 0], 'NPC': [0, 0, 1, 1]},
     ...                       dtype=bool, index=repnames)
 
-We would next describe the location of input data files (raw contact matrices in
-`scipy.sparse` NPZ format, bias vectors in plain-text `np.savetxt()` format,
-and loop cluster files in sparse JSON format) and use those to construct a
-`Fast3DeFDR` object:
+If you're following along, you can download the data like this:
 
+    $ mkdir -p ~/data/bonev
+    $ wget -qO- -O tmp.zip https://www.dropbox.com/sh/hvoyhjc00m24o6m/AAAci5qaxsn7o9W-gToAeBiza?dl=1 && unzip tmp.zip -x / -d ~/data/bonev && rm tmp.zip
+
+The required input files consist of:
+
+ - raw contact matrices in `scipy.sparse` NPZ format,
+ - bias vectors in plain-text `np.savetxt()` format, and
+ - loop cluster files in sparse JSON format
+
+We would next describe the location of the input data files and use those to
+construct a `Fast3DeFDR` object:
+
+    >>> import os.path
     >>> from fast3defdr import Fast3DeFDR
     >>>
-    >>> base_path = '...'
+    >>> base_path = os.path.expanduser('~/data/bonev/')
     >>> f = Fast3DeFDR(
     ...     raw_npz_patterns=[base_path + '<rep>/<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
     ...     bias_patterns=[base_path + '<rep>/<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
@@ -61,6 +74,7 @@ and loop cluster files in sparse JSON format) and use those to construct a
     ...     outdir='output',
     ...     loop_patterns={c: base_path + 'clusters/%s_<chrom>_clusters.json' % c for c in ['ES', 'NPC']}
     ... )
+    creating directory output
 
 This object saves itself to disk, so it can be re-loaded at any time:
 
@@ -153,35 +167,35 @@ The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
 
 ### Distance dependence curves before and after scaling
 
-    >>> f.plot_dd_curves('chr1', outfile='dd.png')
+    >>> _ = f.plot_dd_curves('chr18', outfile='dd.png')
 
 ![](images/dd.png)
 
 ### Dispersion fitting
 
-    >>> f.plot_dispersion_fit('chr1', 'ES', outfile='disp.png')
+    >>> _ = f.plot_dispersion_fit('chr18', 'ES', outfile='disp.png')
 
 ![](images/disp.png)
 
-    >>> f.plot_dispersion_fit('chr1', 'ES', yaxis='var', outfile='var.png')
+    >>> _ = f.plot_dispersion_fit('chr18', 'ES', yaxis='var', outfile='var.png')
 
 ![](images/var.png)
 
 ### P-value distribution
 
-    >>> f.plot_pvalue_distribution(outfile='pvalue_dist.png')
+    >>> _ = f.plot_pvalue_distribution(outfile='pvalue_dist.png')
 
 ![](images/pvalue_dist.png)
 
 ### Q-value distribution
 
-    >>> f.plot_qvalue_distribution(outfile='qvalue_dist.png')
+    >>> _ = f.plot_qvalue_distribution(outfile='qvalue_dist.png')
 
 ![](images/qvalue_dist.png)
 
 ### Pixel detail grid
 
-    >>> f.plot_grid('chr1', 1303, 1312, 50, outfile='grid.png')
+    >>> _ = f.plot_grid('chr18', 2218, 2236, 50, outfile='grid.png')
 
 ![](images/grid.png)
 
@@ -196,7 +210,7 @@ The lower left heatmap shows the q-values. Significantly differential clusters
 are orange while constitutive ones are gray.
 
 The stripplots in the lower left show details information about the specific
-pixel in the center of the heatmaps (in this example `(1303, 1312)`). The dots
+pixel in the center of the heatmaps (in this example `(2218, 2236)`). The dots
 show the values at that pixel for each replicate in normalized and raw space,
 repsectively. The solid and dashed lines represent the mean parameters under the
 alt and null models, repsectively.
@@ -219,7 +233,7 @@ thresholds on a live-updating plot by running:
     from fast3defdr import Fast3DeFDR
     
     f = Fast3DeFDR.load('output')
-    _, _, outline_clusters = f.plot_grid('chr1', 1303, 1312, 50)
+    _, _, outline_clusters = f.plot_grid('chr18', 2218, 2236, 50)
     _ = interact(outline_clusters, fdr=[0.01, 0.05, 0.1, 0.2],
                  cluster_size=[3, 4])
 
@@ -232,15 +246,14 @@ generate simulations of differential looping.
 
 ### Generating simulations
 
-To create an ES-based simulation of chromosome 19, we run
+To create an ES-based simulation over all chromosomes listed in `f.chroms`, we
+run
 
     >>> from fast3defdr import Fast3DeFDR
     >>>
     >>> f = Fast3DeFDR.load('output')
-    >>> f.simulate('ES', chrom='chr19')
-
-We are simulating only chromosome 19 for illustrative purposes, but a
-simulation can be generated over all chromosomes by omitting the `chrom` kwarg.
+    >>> f.simulate('ES')
+    creating directory sim
 
 This takes the mean of the real scaled data across the ES replicates and
 perturbs the loops specified in `f.loop_patterns['ES']` up or down at random to
@@ -280,45 +293,48 @@ matrices and named `<rep>_<chrom>_kr.bias`. One example of how this can be done
 is to use the [hiclite library](https://bitbucket.org/creminslab/hiclite) and
 the following script:
 
-```python
-import numpy as np
-import scipy.sparse as sparse
-
-from hiclite.steps.filter import filter_sparse_rows_count
-from hiclite.steps.balance import kr_balance
-
-
-infile_pattern = 'sim/<rep>_<chrom>_raw.npz'
-repnames = ['A1', 'A2', 'B1', 'B2']
-chroms = ['chr19']
-
-for repname in repnames:
-    for chrom in chroms:
-        print(repname, chrom)
-        infile = infile_pattern.replace('<rep>', repname)\
-            .replace('<chrom>', chrom)
-        outfile = infile.replace('_raw.npz', '_kr.bias')
-        _, bias, _ = kr_balance(
-            filter_sparse_rows_count(sparse.load_npz(infile)))
-        np.savetxt(outfile, bias)
-```
+    >>> import sys
+    >>>
+    >>> import numpy as np
+    >>> import scipy.sparse as sparse
+    >>>
+    >>> from hiclite.steps.filter import filter_sparse_rows_count
+    >>> from hiclite.steps.balance import kr_balance
+    >>>
+    >>>
+    >>> infile_pattern = 'sim/<rep>_<chrom>_raw.npz'
+    >>> repnames = ['A1', 'A2', 'B1', 'B2']
+    >>> chroms = ['chr18', 'chr19']
+    >>>
+    >>> for repname in repnames:
+    ...     for chrom in chroms:
+    ...         sys.stderr.write('balancing rep %s chrom %s\n' % (repname, chrom))
+    ...         infile = infile_pattern.replace('<rep>', repname)\
+    ...             .replace('<chrom>', chrom)
+    ...         outfile = infile.replace('_raw.npz', '_kr.bias')
+    ...         _, bias, _ = kr_balance(
+    ...             filter_sparse_rows_count(sparse.load_npz(infile)), fl=0)
+    ...         np.savetxt(outfile, bias)
 
 Next, we create a new Fast3DeFDR object to analyze the simulated data and run
 the analysis through to q-values:
 
+    >>> import os.path
     >>> from fast3defdr import Fast3DeFDR
     >>>
     >>> repnames = ['A1', 'A2', 'B1', 'B2']
-    >>> chroms = ['chr19']
+    >>> chroms = ['chr18', 'chr19']
     >>> sim_path = 'sim/'
+    >>> base_path = os.path.expanduser('~/data/bonev/')
     >>> f_sim = Fast3DeFDR(
     ...     raw_npz_patterns=[sim_path + '<rep>_<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
     ...     bias_patterns=[sim_path + '<rep>_<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
     ...     chroms=chroms,
     ...     design=sim_path + 'design.csv',
     ...     outdir='output-sim',
-    ...     loop_patterns={'ES': '.../clusters/ES_<chrom>_clusters.json'}
+    ...     loop_patterns={'ES': base_path + 'clusters/ES_<chrom>_clusters.json'}
     ... )
+    creating directory output-sim
     >>> f_sim.run_to_qvalues()
 
 Next, we can evaluate the simulation against the clusters in
@@ -342,8 +358,8 @@ and FDR control curves by running:
     >>> import numpy as np
     >>> from fast3defdr import plot_roc, plot_fdr
     >>>
-    >>> plot_roc([np.load('output-sim/eval.npz')], ['fast3defdr'], outfile='roc.png')
-    >>> plot_fdr([np.load('output-sim/eval.npz')], ['fast3defdr'], outfile='fdr.png')
+    >>> _ = plot_roc([np.load('output-sim/eval.npz')], ['fast3defdr'], outfile='roc.png')
+    >>> _ = plot_fdr([np.load('output-sim/eval.npz')], ['fast3defdr'], outfile='fdr.png')
 
 ![](images/roc.png)
 ![](images/fdr.png)

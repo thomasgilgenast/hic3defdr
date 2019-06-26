@@ -3,32 +3,59 @@ image: python:2.7
 definitions:
   caches:
     data: ~/data
+  steps:
+    - step: &data
+        name: Prepare data
+        caches:
+          - data
+        script:
+          - mkdir -p ~/data/bonev
+          - '[ ! -d "data/bonev/clusters" ] && (wget -qO- -O tmp.zip https://www.dropbox.com/sh/hvoyhjc00m24o6m/AAAci5qaxsn7o9W-gToAeBiza?dl=1 && unzip tmp.zip -x / -d data/bonev && rm tmp.zip) || echo "data already present"'
+    - step: &venv
+        name: Prepare environment
+        caches:
+          - pip
+        script:
+          - virtualenv venv
+          - source venv/bin/activate
+          - pip install numpy && pip install -e .[complete] && pip install --extra-index-url https://pypi.gilgi.org hiclite
+        artifacts:
+          - venv/**
+    - step: &test
+        name: Run tests
+        caches:
+          - data
+        script:
+          - 'mkdir -p ~/.config/matplotlib && echo "backend: agg" > ~/.config/matplotlib/matplotlibrc'
+          - flake8 fast3defdr
+          - nosetests
+          - python -m doctest -v README.md
+        artifacts:
+          - '*.png'
+    - step: &update
+        name: Update README
+        script:
+          - mv *.png images/
+          - git add images/*
+          - git commit -m "[skip ci] updating README images"
+          - git push
+    - step: &pypi
+        name: PyPI
+        script:
+          - pip install twine
+          - python setup.py sdist bdist_wheel
+          - twine upload --repository-url https://pypi.gilgi.org -u $PYPI_USERNAME -p $PYPI_PASSWORD dist/*
 
 pipelines:
   branch:
     'build/*'
-      - step:
-          name: Tests
-          caches:
-            - pip
-            - data
-          script:
-            - virtualenv ~/venv
-            - source ~/venv/bin/activate
-            - pip install numpy && pip install -e .
-            - pip install nose nose-exclude flake8 scikit-learn
-            - 'mkdir -p ~/.config/matplotlib && echo "backend: agg" > ~/.config/matplotlib/matplotlibrc'
-            - flake8 fast3defdr
-            - nosetests
-            - python -m doctest -v README.md
-            - git add images/*
-            - git commit -m "[skip ci] automated build"
-            - git push
+      - step: *data
+      - step: *venv
+      - step: *test
+      - step: *update
   tags:
     '*.*.*':
-      - step:
-          name: PyPI
-          script:
-            - pip install twine
-            - python setup.py sdist bdist_wheel
-            - twine upload -u $PYPI_USERNAME -p $PYPI_PASSWORD dist/* --repository-url pypi.gilgi.org
+      - step: *data
+      - step: *venv
+      - step: *test
+      - step: *pypi
