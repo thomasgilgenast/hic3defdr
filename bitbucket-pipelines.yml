@@ -48,7 +48,7 @@ definitions:
 
 pipelines:
   branch:
-    'build/*'
+    'build/*':
       - step: *data
       - step: *venv
       - step: *test
