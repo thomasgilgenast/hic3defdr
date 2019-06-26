@@ -87,8 +87,8 @@ def sparse_intersection(fnames, bias=None):
     return csr_sum_coo.row[full_idx], csr_sum_coo.col[full_idx]
 
 
-def sparse_union(fnames, dist_thresh=1000, bias=None,
-                 size_factors=None,  mean_thresh=0.0):
+def sparse_union(fnames, dist_thresh=1000, bias=None, size_factors=None,
+                 mean_thresh=0.0):
     """
     Computes the intersection set of (row, col) pairs across multiple sparse
     matrices.

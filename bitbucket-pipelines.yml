@@ -1,0 +1,34 @@
+image: python:2.7
+
+definitions:
+  caches:
+    data: ~/data
+
+pipelines:
+  branch:
+    'build/*'
+      - step:
+          name: Tests
+          caches:
+            - pip
+            - data
+          script:
+            - virtualenv ~/venv
+            - source ~/venv/bin/activate
+            - pip install numpy && pip install -e .
+            - pip install nose nose-exclude flake8 scikit-learn
+            - 'mkdir -p ~/.config/matplotlib && echo "backend: agg" > ~/.config/matplotlib/matplotlibrc'
+            - flake8 fast3defdr
+            - nosetests
+            - python -m doctest -v README.md
+            - git add images/*
+            - git commit -m "[skip ci] automated build"
+            - git push
+  tags:
+    '*.*.*':
+      - step:
+          name: PyPI
+          script:
+            - pip install twine
+            - python setup.py sdist bdist_wheel
+            - twine upload -u $PYPI_USERNAME -p $PYPI_PASSWORD dist/* --repository-url pypi.gilgi.org

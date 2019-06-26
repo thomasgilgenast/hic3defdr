@@ -662,10 +662,7 @@ class Fast3DeFDR(object):
         for r in range(self.design.shape[0]):
             balanced[:, r] = raw[:, r] / (bias[row, r] * bias[col, r])
 
-        # compute dist
-        dist = col - row
-
-        return plot_dd_curves(balanced, scaled, dist, self.design, log=log,
+        return plot_dd_curves(row, col, balanced, scaled, self.design, log=log,
                               **kwargs)
 
     def plot_dispersion_fit(self, chrom, cond, yaxis='disp', **kwargs):
