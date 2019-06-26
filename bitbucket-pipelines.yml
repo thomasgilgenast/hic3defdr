@@ -47,7 +47,7 @@ definitions:
           - twine upload --repository-url https://pypi.gilgi.org -u $PYPI_USERNAME -p $PYPI_PASSWORD dist/*
 
 pipelines:
-  branch:
+  branches:
     'build/*':
       - step: *data
       - step: *venv
