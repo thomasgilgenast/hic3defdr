@@ -3,6 +3,7 @@ image: python:2.7
 definitions:
   caches:
     data: ~/data
+    venv: ~/venv
   steps:
     - step: &data
         name: Prepare data
@@ -10,22 +11,21 @@ definitions:
           - data
         script:
           - mkdir -p ~/data/bonev
-          - '[ ! -d "data/bonev/clusters" ] && (wget -qO- -O tmp.zip https://www.dropbox.com/sh/hvoyhjc00m24o6m/AAAci5qaxsn7o9W-gToAeBiza?dl=1 && unzip tmp.zip -x / -d data/bonev && rm tmp.zip) || echo "data already present"'
+          - '[ ! -d "~/data/bonev/clusters" ] && (wget -qO- -O tmp.zip https://www.dropbox.com/sh/hvoyhjc00m24o6m/AAAci5qaxsn7o9W-gToAeBiza?dl=1 && unzip tmp.zip -x / -d ~/data/bonev && rm tmp.zip) || echo "data already present"'
     - step: &venv
         name: Prepare environment
         caches:
           - pip
+          - venv
         script:
-          - virtualenv venv
-          - source venv/bin/activate
-          - pip install numpy && pip install -e .[complete] && pip install --extra-index-url https://pypi.gilgi.org hiclite
-        artifacts:
-          - venv/**
+          - '[ ! -d "~/venv" ] && virtualenv ~/venv && source ~/venv/bin/activate && pip install numpy && pip install -e .[complete] && pip install --extra-index-url https://pypi.gilgi.org hiclite'
     - step: &test
         name: Run tests
         caches:
           - data
+          - venv
         script:
+          - source ~/venv/bin/activate
           - 'mkdir -p ~/.config/matplotlib && echo "backend: agg" > ~/.config/matplotlib/matplotlibrc'
           - flake8 fast3defdr
           - nosetests
