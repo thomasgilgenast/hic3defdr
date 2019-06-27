@@ -21,7 +21,10 @@ definitions:
           - pip
           - venv
         script:
-          - '[ ! -d "~/venv" ] && virtualenv ~/venv && source ~/venv/bin/activate && pip install numpy && pip install -e .[complete] && pip install --extra-index-url https://pypi.gilgi.org hiclite'
+          - if [ ! -d "~/venv" ]; then
+          - virtualenv ~/venv && source ~/venv/bin/activate && pip install $(grep numpy requirements.txt) && pip install -r requirements.txt; else
+          - echo "venv already present";
+          - fi
     - step: &test
         name: Run tests
         caches:
