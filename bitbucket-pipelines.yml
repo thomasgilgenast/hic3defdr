@@ -11,7 +11,10 @@ definitions:
           - data
         script:
           - mkdir -p ~/data/bonev
-          - '[ ! -d "~/data/bonev/clusters" ] && (wget -qO- -O tmp.zip https://www.dropbox.com/sh/hvoyhjc00m24o6m/AAAci5qaxsn7o9W-gToAeBiza?dl=1 && unzip tmp.zip -x / -d ~/data/bonev && rm tmp.zip) || echo "data already present"'
+          - if [ ! ! -d "~/data/bonev/clusters" ]; then
+          - wget -qO- -O tmp.zip https://www.dropbox.com/sh/hvoyhjc00m24o6m/AAAci5qaxsn7o9W-gToAeBiza?dl=1 && unzip tmp.zip -x / -d ~/data/bonev && rm tmp.zip; else
+          - echo "data already present";
+          - fi
     - step: &venv
         name: Prepare environment
         caches:
@@ -29,7 +32,7 @@ definitions:
           - 'mkdir -p ~/.config/matplotlib && echo "backend: agg" > ~/.config/matplotlib/matplotlibrc'
           - flake8 fast3defdr
           - nosetests
-          - python -m doctest -v README.md
+          - python -m doctest README.md
         artifacts:
           - '*.png'
     - step: &update
