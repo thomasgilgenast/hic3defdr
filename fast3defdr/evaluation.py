@@ -58,12 +58,16 @@ def evaluate(y_true, qvalues):
         Parallel arrays of the FDR, FPR, TPR, and thresholds (in ``1 - qvalue``)
         space which specify the FDR, FPR, and and TPR at each threshold. The
         thresholds are selected to represent the convex edge of the ROC curve.
+        The FDR will only be evaluated at about 100 selected thresholds and
+        will be set to ``np.nan`` at the un-evaluated thresholds.
     """
     if not sklearn_avail:
         raise ImportError('failed to import scikit-learn - is it installed?')
     y_pred = 1 - qvalues
     fpr, tpr, thresh = roc_curve(y_true, y_pred)
-    fdr = np.array([compute_fdr(y_true, y_pred > t) for t in thresh])
+    fdr = np.ones_like(fpr) * np.nan
+    for i in range(1, len(thresh), len(thresh)/100):
+        fdr[i] = compute_fdr(y_true, y_pred > thresh[i])
     return fdr, fpr, tpr, thresh
 
 
