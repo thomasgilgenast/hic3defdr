@@ -47,11 +47,11 @@ def plot_variance_fit(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs):
     # plot
     plt.hexbin(mean, var, bins='log', xscale='log', yscale='log', cmap='Blues',
                extent=np.log10([xmin, xmax, ymin, ymax]))
-    plt.scatter(mean_per_bin, var_per_bin, label=r'$\hat{\sigma^2}$ per bin',
+    plt.scatter(mean_per_bin, var_per_bin, label=r'$\hat{\sigma}^2$ per bin',
                 color='C1')
     sort_idx = np.argsort(mean)[::len(mean)/100]
     plt.plot(mean[sort_idx], mvr(mean[sort_idx], disp[sort_idx]),
-             label=r'smoothed $\hat{\sigma^2}$', linewidth=3, color='C4')
+             label=r'smoothed $\hat{\sigma}^2$', linewidth=3, color='C4')
     plt.plot([xmin, xmax], [xmin, xmax], label='Poisson', linestyle='--',
              linewidth=3, color='C3')
     plt.ylim((ymin, ymax))
