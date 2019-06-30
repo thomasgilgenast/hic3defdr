@@ -740,8 +740,8 @@ class Fast3DeFDR(object):
         var = np.var(scaled, ddof=1, axis=1)
 
         return plot_fn(mean, var, disp, cov_per_bin, disp_per_bin,
-                       dist=dist if xaxis=='dist' else None, dist_max=dist_max,
-                       **kwargs)
+                       dist=dist if xaxis == 'dist' else None,
+                       dist_max=dist_max, **kwargs)
 
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """
@@ -800,8 +800,10 @@ class Fast3DeFDR(object):
             np.concatenate(qvalues), xlabel='qvalue', **kwargs)
 
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=3,
-                  fdr_vmid=0.05, color_cycle=('blue', 'purple', 'yellow',
-                  'cyan', 'green', 'red'), despine=False, **kwargs):
+                  fdr_vmid=0.05,
+                  color_cycle=('blue', 'purple', 'yellow', 'cyan', 'green',
+                               'red'),
+                  despine=False, **kwargs):
         """
         Plots a combination visualization grid focusing on a specific pixel on a
         specific chromosome, combining heatmaps, cluster outlines, and

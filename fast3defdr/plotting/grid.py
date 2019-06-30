@@ -14,8 +14,9 @@ from fast3defdr.classification import classify
 @plotter
 def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
               disp_idx, loop_idx, design, fdr, cluster_size, vmax=100,
-              fdr_vmid=0.05, color_cycle=('blue', 'purple', 'yellow', 'cyan',
-              'green', 'red'), despine=False, **kwargs):
+              fdr_vmid=0.05,
+              color_cycle=('blue', 'purple', 'yellow', 'cyan', 'green', 'red'),
+              despine=False, **kwargs):
     """
     Plots a combination visualization grid focusing on a specific pixel on a
     specific chromosome, combining heatmaps, cluster outlines, and stripplots.

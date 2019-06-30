@@ -156,7 +156,7 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
             # bias mean
             bm = m*bias[new_row, j]*bias[new_col, j]*size_factors[j] + 0.1
             assert np.all(bm > 0)
-            
+
             # establish cov
             cov = bm if trend == 'mean' else new_col - new_row
 

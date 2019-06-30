@@ -68,7 +68,6 @@ def plot_variance_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
     ymin = np.percentile(var, 1)
     ymax = np.percentile(var, 99)
 
-
     # compute mean and var per bin
     if dist is not None:
         dd = np.array([np.mean(mean[dist == d]) for d in range(dist_max + 1)])
@@ -87,10 +86,10 @@ def plot_variance_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
     if add_curve:
         sort_idx = np.argsort(cov)[::len(cov)/1000]
         plt.plot(cov[sort_idx], mvr(dd[cov[sort_idx]], disp[sort_idx]),
-                label=r'smoothed $\hat{\sigma}^2$', linewidth=3, color='C4')
+                 label=r'smoothed $\hat{\sigma}^2$', linewidth=3, color='C4')
     if dist is None:
         plt.plot([xmin, xmax], [xmin, xmax], label='Poisson', linestyle='--',
-                linewidth=3, color='C3')
+                 linewidth=3, color='C3')
     plt.ylim((ymin, ymax))
     plt.xlim((xmin, xmax))
     plt.xlabel(xlabel)
@@ -168,10 +167,10 @@ def plot_dispersion_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
                 color='C1')
     if add_curve:
         sort_idx = np.argsort(cov)[::len(cov)/1000]
-        plt.plot(cov[sort_idx], disp[sort_idx], label=r'smoothed $\hat{\alpha}$',
-                linewidth=3, color='C4')
+        plt.plot(cov[sort_idx], disp[sort_idx],
+                 label=r'smoothed $\hat{\alpha}$', linewidth=3, color='C4')
     plt.hlines(0, xmin, xmax, label='Poisson', linestyle='--', linewidth=3,
-            color='C3')
+               color='C3')
     if dist is None:
         xs = np.logspace(np.log10(xmin), np.log10(xmax), 100)
         plt.plot(xs, [mme_per_pixel([[x, x]]) for x in xs], linestyle='--',
