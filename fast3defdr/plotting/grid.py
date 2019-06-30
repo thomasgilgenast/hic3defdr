@@ -14,7 +14,8 @@ from fast3defdr.classification import classify
 @plotter
 def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
               disp_idx, loop_idx, design, fdr, cluster_size, vmax=100,
-              fdr_vmid=0.05, despine=False, **kwargs):
+              fdr_vmid=0.05, color_cycle=('blue', 'purple', 'yellow', 'cyan',
+              'green', 'red'), despine=False, **kwargs):
     """
     Plots a combination visualization grid focusing on a specific pixel on a
     specific chromosome, combining heatmaps, cluster outlines, and stripplots.
@@ -63,6 +64,8 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     fdr_vmid : float
         The FDR value at the middle of the colorscale used for plotting the
         q-value heatmap.
+    color_cycle : list of matplotlib colors
+        The color cycle to use over conditions.
     kwargs : kwargs
         Typical plotter kwargs.
 
@@ -85,7 +88,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     mu_hat_alt = np.dot(mu_hat_alt, design.values.T)
 
     # set the color cycle over conditions
-    cc = ['blue', 'purple', 'yellow', 'cyan', 'green', 'red']
+    cc = color_cycle
 
     # plot
     fig, ax = plt.subplots(design.shape[1] + 1, max_reps + 1,

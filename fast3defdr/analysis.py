@@ -768,7 +768,8 @@ class Fast3DeFDR(object):
             np.concatenate(qvalues), xlabel='qvalue', **kwargs)
 
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=3,
-                  fdr_vmid=0.05, despine=False, **kwargs):
+                  fdr_vmid=0.05, color_cycle=('blue', 'purple', 'yellow',
+                  'cyan', 'green', 'red'), despine=False, **kwargs):
         """
         Plots a combination visualization grid focusing on a specific pixel on a
         specific chromosome, combining heatmaps, cluster outlines, and
@@ -792,6 +793,8 @@ class Fast3DeFDR(object):
         fdr_vmid : float
             The FDR value at the middle of the colorscale used for plotting the
             q-value heatmap.
+        color_cycle : list of matplotlib colors
+            The color cycle to use over conditions.
         kwargs : kwargs
             Typical plotter kwargs.
 
@@ -819,4 +822,4 @@ class Fast3DeFDR(object):
         return plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt,
                          mu_hat_null, qvalues, disp_idx, loop_idx, self.design,
                          fdr, cluster_size, vmax=vmax, fdr_vmid=fdr_vmid,
-                         despine=despine, **kwargs)
+                         color_cycle=color_cycle, despine=despine, **kwargs)
