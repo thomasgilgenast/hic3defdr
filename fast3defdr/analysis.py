@@ -73,7 +73,7 @@ class Fast3DeFDR(object):
 
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
                  dist_thresh_min=4, dist_thresh_max=1000, bias_thresh=0.1,
-                 mean_thresh=5, loop_patterns=None):
+                 mean_thresh=1, loop_patterns=None):
         """
         Base constructor. See ``help(Fast3DeFDR)`` for details.
         """
@@ -261,7 +261,8 @@ class Fast3DeFDR(object):
         self.save_data(size_factors, 'size_factors', chrom)
         self.save_data(scaled, 'scaled', chrom)
 
-    def estimate_disp(self, chrom=None, estimator='cml', n_bins=100):
+    def estimate_disp(self, chrom=None, estimator='cml', trend='mean',
+                      n_bins=100):
         """
         Estimates dispersion parameters.
 
@@ -276,6 +277,9 @@ class Fast3DeFDR(object):
             within each bin. Pass a function that takes in a
             (pixels, replicates) shaped array of data and returns a dispersion
             value to use that instead.
+        trend : 'mean' or 'dist'
+            Whether to estimate the dispersion trend with respect to mean or
+            interaction distance.
         n_bins : int
             Number of bins to use during dispersion estimation.
         """
@@ -295,24 +299,35 @@ class Fast3DeFDR(object):
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
         disp_idx = np.all(mean > self.mean_thresh, axis=1) & \
             (dist >= self.dist_thresh_min)
+
+        # resolve cov
+        if trend == 'dist':
+            cov = np.broadcast_to(dist[disp_idx, None],
+                                  (disp_idx.sum(), self.design.shape[1]))
+        elif trend == 'mean':
+            cov = mean[disp_idx, :]
+        else:
+            raise ValueError('trend must be \'mean\' or \'dist\'')
+
         disp = np.zeros((disp_idx.sum(), self.design.shape[1]))
-        mean_per_bin = np.zeros((n_bins, self.design.shape[1]))
+        cov_per_bin = np.zeros((n_bins, self.design.shape[1]))
         disp_per_bin = np.zeros((n_bins, self.design.shape[1]))
         for c, cond in enumerate(self.design.columns):
             eprint('  estimating dispersion for condition %s' % cond)
-            disp[:, c], mean_per_bin[:, c], disp_per_bin[:, c], disp_fn = \
+            disp[:, c], cov_per_bin[:, c], disp_per_bin[:, c], disp_fn = \
                 estimate_dispersion(
                     scaled[disp_idx, :][:, self.design[cond]],
-                    cov=mean[disp_idx, c],
+                    cov=cov[:, c],
                     estimator=estimator,
-                    n_bins=n_bins
+                    n_bins=n_bins,
+                    logx=True if trend == 'mean' else False
             )
             self.save_disp_fn(cond, chrom, disp_fn)
 
         eprint('  saving estimated dispersions to disk')
         self.save_data(disp_idx, 'disp_idx', chrom)
         self.save_data(disp, 'disp', chrom)
-        self.save_data(mean_per_bin, 'mean_per_bin', chrom)
+        self.save_data(cov_per_bin, 'cov_per_bin', chrom)
         self.save_data(disp_per_bin, 'disp_per_bin', chrom)
 
     def lrt(self, chrom=None):
@@ -386,7 +401,7 @@ class Fast3DeFDR(object):
                            'qvalues', chrom)
             offset += len(pvalues[i])
 
-    def run_to_qvalues(self, estimator='cml', n_bins=100):
+    def run_to_qvalues(self, estimator='cml', trend='mean', n_bins=100):
         """
         Shortcut method to run the analysis to q-values.
 
@@ -398,11 +413,14 @@ class Fast3DeFDR(object):
             within each bin. Pass a function that takes in a
             (pixels, replicates) shaped array of data and returns a dispersion
             value to use that instead.
+        trend : 'mean' or 'dist'
+            Whether to estimate the dispersion trend with respect to mean or
+            interaction distance.
         n_bins : int
             Number of bins to use during dispersion estimation.
         """
         self.prepare_data()
-        self.estimate_disp(estimator=estimator, n_bins=n_bins)
+        self.estimate_disp(estimator=estimator, trend=trend, n_bins=n_bins)
         self.lrt()
         self.bh()
 
@@ -665,7 +683,8 @@ class Fast3DeFDR(object):
         return plot_dd_curves(row, col, balanced, scaled, self.design, log=log,
                               **kwargs)
 
-    def plot_dispersion_fit(self, chrom, cond, yaxis='disp', **kwargs):
+    def plot_dispersion_fit(self, chrom, cond, xaxis='mean', yaxis='disp',
+                            dist_max=200, add_curve=True, **kwargs):
         """
         Plots a hexbin plot of pixel-wise mean vs either dispersion or variance,
         overlaying the Poisson line and the mean-variance relationship
@@ -676,8 +695,16 @@ class Fast3DeFDR(object):
         chrom, cond : str
             The name of the chromosome and condition, respectively, to plot the
             fit for.
+        xaxis : 'mean' or 'dist'
+            What to plot on the x-axis.
         yaxis : 'disp' or 'var'
             What to plot on the y-axis.
+        dist_max : int
+            If ``xaxis`` is 'dist', the maximum distance to include on the plot
+            in bin units.
+        add_curve : bool
+            Pass True to include the curve of smoothed dispersions. Pass False
+            to skip it.
         kwargs : kwargs
             Typical plotter kwargs.
 
@@ -702,14 +729,19 @@ class Fast3DeFDR(object):
         scaled = self.load_data('scaled', chrom)\
             [disp_idx, :][:, self.design[cond]]
         disp = self.load_data('disp', chrom)[:, cond_idx]
-        mean_per_bin = self.load_data('mean_per_bin', chrom)[:, cond_idx]
+        cov_per_bin = self.load_data('cov_per_bin', chrom)[:, cond_idx]
         disp_per_bin = self.load_data('disp_per_bin', chrom)[:, cond_idx]
+        row = self.load_data('row', chrom)[disp_idx]
+        col = self.load_data('col', chrom)[disp_idx]
+        dist = col - row
 
         # compute mean and sample variance
         mean = np.mean(scaled, axis=1)
         var = np.var(scaled, ddof=1, axis=1)
 
-        return plot_fn(mean, var, disp, mean_per_bin, disp_per_bin, **kwargs)
+        return plot_fn(mean, var, disp, cov_per_bin, disp_per_bin,
+                       dist=dist if xaxis=='dist' else None, dist_max=dist_max,
+                       **kwargs)
 
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """

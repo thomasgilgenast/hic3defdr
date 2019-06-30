@@ -41,10 +41,11 @@ definitions:
     - step: &update
         name: Update README
         script:
+          - git checkout -b built/$BITBUCKET_BUILD_NUMBER
           - mv *.png images/
           - git add images/*
-          - git commit -m "[skip ci] updating README images"
-          - git push
+          - git commit -m "updating README images using $BITBUCKET_COMMIT"
+          - git push origin built/$BITBUCKET_BUILD_NUMBER
     - step: &pypi
         name: PyPI
         script:

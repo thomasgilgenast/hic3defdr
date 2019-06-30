@@ -81,7 +81,7 @@ def mme(data):
     return np.nanmean(mme_per_pixel(data))
 
 
-def estimate_dispersion(data, cov, estimator='cml', n_bins=100, logx=True):
+def estimate_dispersion(data, cov, estimator='cml', n_bins=100, logx=False):
     """
     Estimates trended dispersion for each point in ``data`` with respect to a
     covariate ``cov``, using ``estimator`` to estimate the dispersion within

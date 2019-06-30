@@ -35,7 +35,7 @@ Basic walkthrough
 -----------------
 
 To analyze the ES_1, ES_3, NPC_2, and NPC_4 reps of the dataset dataset from
-(Bonev et al. 2017)[https://www.ncbi.nlm.nih.gov/pubmed/29053968] with default
+[Bonev et al. 2017](https://www.ncbi.nlm.nih.gov/pubmed/29053968) with default
 parameters, we would first describe the dataset in terms of replicate names,
 chromosome names, and a design matrix. We will just analyze chromosomes 18 and
 19 here for illustrative purposes.
@@ -57,7 +57,8 @@ The required input files consist of:
 
  - raw contact matrices in `scipy.sparse` NPZ format,
  - bias vectors in plain-text `np.savetxt()` format, and
- - loop cluster files in sparse JSON format
+ - loop cluster files in sparse JSON format, specifying the locations of loops
+   present in each condition
 
 We would next describe the location of the input data files and use those to
 construct a `Fast3DeFDR` object:
@@ -99,6 +100,10 @@ We estimate dispersions with:
 
     >>> f.estimate_disp()
 
+By default, dispersion will be estimated as a function of the pixel-wise
+normalized mean. To fit dispersion as a function of distance instead, pass
+`trend='dist'`.
+
 We perform the likelihood ratio test to obtain p-values with:
 
     >>> f.lrt()
@@ -120,14 +125,17 @@ We can also sweep across FDR and/or cluster size thresholds:
 thresholds that have not been run yet. `f.threshold()` is the step that performs 
 thresholding and clustering but not classification.
 
-The complete analysis should take about 10 minutes on a laptop and fit
-comfortably in memory.
+The complete analysis of these four specific replicates of the Bonev et al.
+dataset should take about 10 minutes on a laptop if run for all chromosomes,
+fitting comfortably in memory.
 
 Intermediates and final output files
 ------------------------------------
 
 All intermediates used in the computation will be saved to the disk inside the
-`outdir` folder as `<intermediate>_<chrom>.npy` or `<intermediate>_<chrom>.json`
+`outdir` folder as `<intermediate>_<chrom>.npy` (most intermediates),
+`<intermediate>_<chrom>.json` (thresholded or classified clusters), or
+`<intermediate>_<chrom>.pickle` (estimated dispersion functions).
 
 | Step              | Intermediate    | Shape                       | Description                                 |
 |-------------------|-----------------|-----------------------------|---------------------------------------------|
@@ -138,8 +146,9 @@ All intermediates used in the computation will be saved to the disk inside the
 | `prepare_data()`  | `size_factors`  | `(n_reps,)`                 | Size factors                                |
 | `prepare_data()`  | `scaled`        | `(n_pixels, n_reps)`        | Normalized count values                     |
 | `estimate_disp()` | `disp_idx`      | `(n_pixels,)`               | Marks pixels for which dispersion is fitted |
-| `estimate_disp()` | `mean_per_bin`  | `(n_bins, n_conds)`         | Average mean count in each bin              |
+| `estimate_disp()` | `cov_per_bin`   | `(n_bins, n_conds)`         | Average mean count or distance in each bin  |
 | `estimate_disp()` | `disp_per_bin`  | `(n_bins, n_conds)`         | Pooled dispersion estimates in each bin     |
+| `estimate_disp()` | `disp_fn_<c>`   | pickled function            | Fitted dispersion function                  |
 | `estimate_disp()` | `disp`          | `(disp_idx.sum(), n_conds)` | Smoothed dispersion estimates               |
 | `lrt()`           | `mu_hat_null`   | `(disp_idx.sum(),)`         | Null model mean parameters                  |
 | `lrt()`           | `mu_hat_alt`    | `(disp_idx.sum(), n_conds)` | Alternative model mean parameters           |
@@ -181,11 +190,23 @@ The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
 
 ![](images/var.png)
 
+If dispersion was fitted against distance rather than mean, pass `xaxis='dist'`
+to plot dispersion/variance versus distance.
+
+You can also draw the dispersion point cloud against the `xaxis` (either
+`'dist'` or `'mean'`) you didn't use for fitting, but you should also pass
+`add_curve=False` to skip trying to plot the smoothed curve in a space it was
+not fitted in.
+
 ### P-value distribution
 
     >>> _ = f.plot_pvalue_distribution(outfile='pvalue_dist.png')
 
 ![](images/pvalue_dist.png)
+
+By default, this plots the p-value distribution over all pixels for which
+dispersion was estimated. To plot the p-value distribution only over points in
+loops, pass `idx='loop'`.
 
 ### Q-value distribution
 
@@ -254,6 +275,10 @@ run
     >>> f = Fast3DeFDR.load('output')
     >>> f.simulate('ES')
     creating directory sim
+
+If we passed `trend='dist'` to `f.estimate_disp()`, we need to pass it to
+`f.simulate()` as well to ensure that the simulation function knows to treat
+the previously-fitted dispersion function as a function of distance.
 
 This takes the mean of the real scaled data across the ES replicates and
 perturbs the loops specified in `f.loop_patterns['ES']` up or down at random to

@@ -55,7 +55,7 @@ def perturb_cluster(matrix, cluster, effect):
 
 
 def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
-             p_diff=0.4):
+             p_diff=0.4, trend='mean'):
     """
     Simulates raw contact matrices based on ``mean`` and ``disp_fn`` using
     ``bias`` and ``size_factors`` per simulated replicate and perturbing the
@@ -69,8 +69,9 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     mean : np.ndarray
         Vector of mean values for each pixel to use as a base to simulate from.
     disp_fn : function
-        Function that returns a dispersion given a mean. Will be used to
-        determine the dispersion values to use during simulation.
+        Function that returns a dispersion given a mean or distance (as
+        specified by ``trend``). Will be used to determine the dispersion
+        values to use during simulation.
     bias : np.ndarray
         Rows are bins of the full contact matrix, columns are to-be-simulated
         replicates. Each column represents the bias vector to use for simulating
@@ -89,6 +90,9 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     p_diff : float
         This fraction of loops will be perturbed across the simulated
         conditions. The remainder will be constitutive.
+    trend : 'mean' or 'dist'
+        Whether ``disp_fn`` returns the smoothed dispersion as a function of
+        mean or of interaction distance.
 
     Returns
     -------
@@ -152,10 +156,14 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
             # bias mean
             bm = m*bias[new_row, j]*bias[new_col, j]*size_factors[j] + 0.1
             assert np.all(bm > 0)
+            
+            # establish cov
+            cov = bm if trend == 'mean' else new_col - new_row
+
             # simulate
             yield sparse.coo_matrix(
                 (freeze_distribution(
-                    stats.nbinom, bm, mvr(bm, disp_fn(bm))).rvs(),
+                    stats.nbinom, bm, mvr(bm, disp_fn(cov))).rvs(),
                  (new_row, new_col)), shape=(bias.shape[0], bias.shape[0]))\
                 .tocsr()
 
