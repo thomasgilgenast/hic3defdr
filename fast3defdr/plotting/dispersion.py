@@ -106,7 +106,8 @@ def plot_variance_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
 
 @plotter
 def plot_dispersion_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
-                        dist_max=200, add_curve=True, mean_thresh=5.0, **kwargs):
+                        dist_max=200, add_curve=True, mean_thresh=5.0,
+                        **kwargs):
     """
     Plots mean versus pixel-wise, bin-wise, and smoothed dispersion in terms of
     dispersion.
