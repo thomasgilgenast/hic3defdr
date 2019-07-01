@@ -10,7 +10,7 @@ from fast3defdr.dispersion import mme_per_pixel
 
 @plotter
 def plot_variance_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
-                      dist_max=200, add_curve=True, **kwargs):
+                      dist_max=200, add_curve=True, mean_thresh=5.0, **kwargs):
     """
     Plots pixel-wise, bin-wise, and smoothed dispersion in terms of variance
     versus either pixel-wise mean or distance.
@@ -32,6 +32,9 @@ def plot_variance_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
     add_curve : bool
         Pass True to include the curve of smoothed dispersions. Pass False to
         skip it.
+    mean_thresh : float
+        Pass the minimum mean threshold used during dispersion estimation to
+        set the left x-axis limit when plotting mean on the x-axis.
     kwargs : kwargs
         Typical plotter kwargs.
 
@@ -60,13 +63,13 @@ def plot_variance_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
 
     # determine reasonable plot limits
     if dist is None:
-        xmin = 5  # 1
+        xmin = mean_thresh
         xmax = np.percentile(mean, 99.99)
     else:
         xmin = 0
         xmax = dist_max
-    ymin = np.percentile(var, 1)
-    ymax = np.percentile(var, 99)
+    ymin = np.percentile(var, 0.1)
+    ymax = np.percentile(var, 99.9)
 
     # compute mean and var per bin
     if dist is not None:
@@ -85,7 +88,11 @@ def plot_variance_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
                 color='C1')
     if add_curve:
         sort_idx = np.argsort(cov)[::len(cov)/1000]
-        plt.plot(cov[sort_idx], mvr(dd[cov[sort_idx]], disp[sort_idx]),
+        if dist is not None:
+            mean_sort_idx = dd[cov[sort_idx]]
+        else:
+            mean_sort_idx = cov[sort_idx]
+        plt.plot(cov[sort_idx], mvr(mean_sort_idx, disp[sort_idx]),
                  label=r'smoothed $\hat{\sigma}^2$', linewidth=3, color='C4')
     if dist is None:
         plt.plot([xmin, xmax], [xmin, xmax], label='Poisson', linestyle='--',
@@ -99,7 +106,7 @@ def plot_variance_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
 
 @plotter
 def plot_dispersion_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
-                        dist_max=200, add_curve=True, **kwargs):
+                        dist_max=200, add_curve=True, mean_thresh=5.0, **kwargs):
     """
     Plots mean versus pixel-wise, bin-wise, and smoothed dispersion in terms of
     dispersion.
@@ -121,6 +128,9 @@ def plot_dispersion_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
     add_curve : bool
         Pass True to include the curve of smoothed dispersions. Pass False to
         skip it.
+    mean_thresh : float
+        Pass the minimum mean threshold used during dispersion estimation to
+        set the left x-axis limit when plotting mean on the x-axis.
     kwargs : kwargs
         Typical plotter kwargs.
 
@@ -152,7 +162,7 @@ def plot_dispersion_fit(mean, var, disp, cov_per_bin, disp_per_bin, dist=None,
 
     # determine reasonable plot limits
     if dist is None:
-        xmin = 5  # 1
+        xmin = mean_thresh
         xmax = np.percentile(mean, 99.99)
     else:
         xmin = 0

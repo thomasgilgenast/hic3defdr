@@ -73,7 +73,7 @@ class Fast3DeFDR(object):
 
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
                  dist_thresh_min=4, dist_thresh_max=1000, bias_thresh=0.1,
-                 mean_thresh=1, loop_patterns=None):
+                 mean_thresh=5.0, loop_patterns=None):
         """
         Base constructor. See ``help(Fast3DeFDR)`` for details.
         """
@@ -286,7 +286,7 @@ class Fast3DeFDR(object):
         if chrom is None:
             for chrom in self.chroms:
                 self.estimate_disp(chrom=chrom, estimator=estimator,
-                                   n_bins=n_bins)
+                                   trend=trend, n_bins=n_bins)
             return
         eprint('estimating dispersion for chrom %s' % chrom)
         eprint('  loading data')
@@ -527,7 +527,8 @@ class Fast3DeFDR(object):
                         c, '%s/%s_%g_%i_%s.json' %
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
-    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, outdir='sim'):
+    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, trend='mean',
+                 outdir='sim'):
         """
         Simulates raw contact matrices based on previously fitted scaled means
         and dispersions in a specific condition.
@@ -551,6 +552,10 @@ class Fast3DeFDR(object):
         p_diff : float
             This fraction of loops will be perturbed across the simulated
             conditions. The remainder will be constitutive.
+        trend : 'mean' or 'dist'
+            The covariate against which dispersion was fitted when calling
+            ``estimate_disp()``. Necessary for correct interpretation of the
+            fitted dispersion function as a function of mean or of distance.
         outdir : str
             Path to a directory to store the simulated data to.
         """
@@ -596,7 +601,7 @@ class Fast3DeFDR(object):
         # simulate and save
         classes, sim_iter = simulate(
             row, col, mean, disp_fn, bias, size_factors, clusters, beta=beta,
-            p_diff=p_diff)
+            p_diff=p_diff, trend=trend)
         np.savetxt('%s/labels_%s.txt' % (outdir, chrom), classes, fmt='%s')
         for rep, csr in zip(repnames, sim_iter):
             sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)
@@ -741,7 +746,8 @@ class Fast3DeFDR(object):
 
         return plot_fn(mean, var, disp, cov_per_bin, disp_per_bin,
                        dist=dist if xaxis == 'dist' else None,
-                       dist_max=dist_max, **kwargs)
+                       dist_max=dist_max, mean_thresh=self.mean_thresh,
+                       **kwargs)
 
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """
