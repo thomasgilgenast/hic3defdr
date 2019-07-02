@@ -90,10 +90,14 @@ class Fast3DeFDR(object):
         self.bias_thresh = bias_thresh
         self.mean_thresh = mean_thresh
         self.loop_patterns = loop_patterns
-        self.picklefile = '%s/pickle' % self.outdir
-        check_outdir(self.picklefile)
-        with open(self.picklefile, 'wb') as handle:
-            pickle.dump(self, handle, -1)
+        if not os.path.isfile(self.picklefile):
+            check_outdir(self.picklefile)
+            with open(self.picklefile, 'wb') as handle:
+                pickle.dump(self.__dict__, handle, -1)
+
+    @property
+    def picklefile(self):
+        return '%s/pickle' % self.outdir
 
     @classmethod
     def load(cls, outdir):
@@ -113,7 +117,7 @@ class Fast3DeFDR(object):
             The loaded object.
         """
         with open('%s/pickle' % outdir, 'rb') as handle:
-            return pickle.load(handle)
+            return cls(**pickle.load(handle))
 
     def load_bias(self, chrom):
         """
