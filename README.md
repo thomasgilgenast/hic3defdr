@@ -182,21 +182,20 @@ The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
 
 ### Dispersion fitting
 
-    >>> _ = f.plot_dispersion_fit('chr18', 'ES', outfile='disp.png')
-
-![](images/disp.png)
-
-    >>> _ = f.plot_dispersion_fit('chr18', 'ES', yaxis='var', outfile='var.png')
+    >>> _ = f.plot_dispersion_fit('chr18', 'ES', outfile='var.png')
 
 ![](images/var.png)
+
+You can also plot the y-axis in units of dispersion by plotting `yaxis='disp'`.
 
 If dispersion was fitted against distance rather than mean, pass `xaxis='dist'`
 to plot dispersion/variance versus distance.
 
 You can also draw the dispersion point cloud against the `xaxis` (either
 `'dist'` or `'mean'`) you didn't use for fitting, but you should also pass
-`add_curve=False` to skip trying to plot the smoothed curve in a space it was
-not fitted in.
+`scatter_fit=0` to skip trying to plot the smoothed curve in a space it was
+not fitted in or `scatter_fit=100` to plot the estimated dispersions/variances
+for 100 selected points as a scatterplot.
 
 ### P-value distribution
 

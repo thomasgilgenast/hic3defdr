@@ -20,8 +20,7 @@ from fast3defdr.simulation import simulate
 from fast3defdr.evaluation import make_y_true, evaluate
 from fast3defdr.plotting.distance_dependence import plot_dd_curves
 from fast3defdr.plotting.histograms import plot_pvalue_histogram
-from fast3defdr.plotting.dispersion import plot_variance_fit, \
-    plot_dispersion_fit
+from fast3defdr.plotting.dispersion import plot_mvr
 from fast3defdr.plotting.grid import plot_grid
 
 
@@ -694,8 +693,9 @@ class Fast3DeFDR(object):
         return plot_dd_curves(row, col, balanced, scaled, self.design, log=log,
                               **kwargs)
 
-    def plot_dispersion_fit(self, chrom, cond, xaxis='mean', yaxis='disp',
-                            dist_max=200, add_curve=True, **kwargs):
+    def plot_dispersion_fit(self, chrom, cond, xaxis='mean', yaxis='var',
+                            dist_max=200, scatter_fit=-1, scatter_size=36,
+                            logx=True, logy=True, **kwargs):
         """
         Plots a hexbin plot of pixel-wise mean vs either dispersion or variance,
         overlaying the Poisson line and the mean-variance relationship
@@ -713,9 +713,15 @@ class Fast3DeFDR(object):
         dist_max : int
             If ``xaxis`` is 'dist', the maximum distance to include on the plot
             in bin units.
-        add_curve : bool
-            Pass True to include the curve of smoothed dispersions. Pass False
-            to skip it.
+        scatter_fit : int
+            Pass a nonzero integer to draw the fitted dispersions passed in
+            ``disp`` as a scatterplot of ``scatter_fit`` selected points. Pass
+            -1 to plot the fitted dispersions passed in ``disp`` as a curve.
+            Pass 0 to omit plotting the dispersion estimates altogether.
+        scatter_size : int
+            The marker size when plotting scatterplots.
+        logx, logy : bool
+            Whether or not to log the x- or y-axis, respectively.
         kwargs : kwargs
             Typical plotter kwargs.
 
@@ -724,14 +730,6 @@ class Fast3DeFDR(object):
         pyplot axis
             The axis plotted on.
         """
-        # establish plot_fn
-        if yaxis == 'disp':
-            plot_fn = plot_dispersion_fit
-        elif yaxis == 'var':
-            plot_fn = plot_variance_fit
-        else:
-            raise ValueError('yaxis must be \'disp\' or \'var\'')
-
         # identify cond_idx
         cond_idx = self.design.columns.tolist().index(cond)
 
@@ -740,8 +738,12 @@ class Fast3DeFDR(object):
         scaled = self.load_data('scaled', chrom)\
             [disp_idx, :][:, self.design[cond]]
         disp = self.load_data('disp', chrom)[:, cond_idx]
-        cov_per_bin = self.load_data('cov_per_bin', chrom)[:, cond_idx]
-        disp_per_bin = self.load_data('disp_per_bin', chrom)[:, cond_idx]
+        try:
+            cov_per_bin = self.load_data('cov_per_bin', chrom)[:, cond_idx]
+            disp_per_bin = self.load_data('disp_per_bin', chrom)[:, cond_idx]
+        except IOError:
+            cov_per_bin = None
+            disp_per_bin = None
         row = self.load_data('row', chrom)[disp_idx]
         col = self.load_data('col', chrom)[disp_idx]
         dist = col - row
@@ -750,10 +752,13 @@ class Fast3DeFDR(object):
         mean = np.mean(scaled, axis=1)
         var = np.var(scaled, ddof=1, axis=1)
 
-        return plot_fn(mean, var, disp, cov_per_bin, disp_per_bin,
-                       dist=dist if xaxis == 'dist' else None,
-                       dist_max=dist_max, mean_thresh=self.mean_thresh,
-                       **kwargs)
+        return plot_mvr(mean, var, disp=disp, cov_per_bin=cov_per_bin,
+                        disp_per_bin=disp_per_bin,
+                        dist=dist if xaxis == 'dist' else None,
+                        dist_max=dist_max, yaxis=yaxis,
+                        mean_thresh=self.mean_thresh,
+                        scatter_fit=scatter_fit, scatter_size=scatter_size,
+                        logx=logx, logy=logy, **kwargs)
 
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """
