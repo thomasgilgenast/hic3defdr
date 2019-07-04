@@ -79,7 +79,9 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
         that replicate.
     size_factors : np.ndarray
         Vector of size factors to use for simulating for each to-be-simulated
-        replicate.
+        replicate. To use a different size factor at different distance scales,
+        pass a matrix whose rows correspond to distance scales and whose columns
+        correspond to replicates.
     clusters : list of list of tuple
         The outer list is a list of clusters which represent the locations of
         loops. Each cluster is a list of (i, j) tuples marking the position of
@@ -145,7 +147,7 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     classes[(classes == 'up B') | (classes == 'down A')] = 'B'
 
     eprint('  preparing generator')
-    n_sim = len(size_factors)
+    n_sim = size_factors.shape[-1]
     mean_a = mean_a_csr[new_row, new_col].A1
     mean_b = mean_b_csr[new_row, new_col].A1
     assert np.all(mean_a >= 0)
@@ -155,7 +157,11 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
         for j, m in zip(range(n_sim), [mean_a]*(n_sim/2) + [mean_b]*(n_sim/2)):
             eprint('  biasing and simulating rep %i/%i' % (j+1, n_sim))
             # bias mean
-            bm = m*bias[new_row, j]*bias[new_col, j]*size_factors[j] + 0.1
+            if len(size_factors.shape) == 1:
+                bm = m*bias[new_row, j]*bias[new_col, j]*size_factors[j] + 0.1
+            else:
+                bm = m*bias[new_row, j] * bias[new_col, j] * \
+                    size_factors[new_col-new_row, j] + 0.1
             assert np.all(bm > 0)
 
             # establish cov

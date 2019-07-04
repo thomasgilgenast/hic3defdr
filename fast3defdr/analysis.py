@@ -23,6 +23,7 @@ from fast3defdr.plotting.histograms import plot_pvalue_histogram
 from fast3defdr.plotting.dispersion import plot_mvr
 from fast3defdr.plotting.ma import plot_ma
 from fast3defdr.plotting.grid import plot_grid
+from fast3defdr.progress import tqdm_maybe as tqdm
 
 
 class Fast3DeFDR(object):
@@ -635,9 +636,23 @@ class Fast3DeFDR(object):
                 index=repnames
             ).to_csv(design_file)
 
+        # rewrite size_factor matrix in terms of distance
+        if len(size_factors.shape) == 2:
+            eprint('  converting size factors')
+            dist = col - row
+            n_dists = dist.max() + 1
+            new_size_factors = np.zeros((n_dists, size_factors.shape[1]))
+            for d in tqdm(range(n_dists)):
+                idx = np.argmax(dist == d)
+                new_size_factors[d, :] = size_factors[idx, :]
+            size_factors = new_size_factors
+
         # scramble bias and size_factors
         bias = bias[:, (np.arange(n_sim)+1) % n_sim]
-        size_factors = size_factors[(np.arange(n_sim)+3) % n_sim]
+        if len(size_factors.shape) == 1:
+            size_factors = size_factors[(np.arange(n_sim)+3) % n_sim]
+        else:
+            size_factors = size_factors[:, (np.arange(n_sim)+3) % n_sim]
 
         # simulate and save
         classes, sim_iter = simulate(

@@ -18,7 +18,6 @@ definitions:
     - step: &venv
         name: Prepare environment
         caches:
-          - pip
           - venv
         script:
           - if [ ! -f ~/venv/bin/activate ]; then
