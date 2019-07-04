@@ -21,7 +21,7 @@ definitions:
           - pip
           - venv
         script:
-          - if [ ! -d ~/venv ]; then
+          - if [ ! -f ~/venv/bin/activate ]; then
           - virtualenv ~/venv && source ~/venv/bin/activate && pip install $(grep numpy requirements.txt) && pip install -r requirements.txt; else
           - echo "venv already present";
           - fi
