@@ -42,8 +42,8 @@ def plot_dd_curves(row, col, before, after, design, log=True, **kwargs):
          for b in bs])
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
     for r, repname in enumerate(design.index):
-        ax1.plot(bs, before_means[:, r], label=repname, color='C%i' % r)
-        ax2.plot(bs, after_means[:, r], label=repname, color='C%i' % r)
+        ax1.plot(bs*10 + 5, before_means[:, r], label=repname, color='C%i' % r)
+        ax2.plot(bs*10 + 5, after_means[:, r], label=repname, color='C%i' % r)
     plt.legend()
     ax1.set_xlabel('distance (bins)')
     ax2.set_xlabel('distance (bins)')

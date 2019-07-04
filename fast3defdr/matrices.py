@@ -127,7 +127,7 @@ def sparse_union(fnames, dist_thresh=1000, bias=None, size_factors=None,
     return csr_sum_coo.row[full_idx], csr_sum_coo.col[full_idx]
 
 
-def select_matrix(row_slice, col_slice, row, col, data):
+def select_matrix(row_slice, col_slice, row, col, data, symmetrize=True):
     """
     Slices out a dense matrix from COO-formatted sparse data, filling empty
     values with ``np.nan``.
@@ -138,6 +138,8 @@ def select_matrix(row_slice, col_slice, row, col, data):
         Row and column slice to use, respectively.
     row, col, data : np.ndarray
         COO-format sparse matrix to be sliced.
+    symmetrize : bool
+        Pass True to fill in lower-triangle points of the matrix.
 
     Returns
     -------
@@ -149,6 +151,10 @@ def select_matrix(row_slice, col_slice, row, col, data):
     idx = (row >= r_start) & (row < r_stop) & (col >= c_start) & (col < c_stop)
     matrix = np.ones((r_stop - r_start, c_stop - c_start)) * np.nan
     matrix[row[idx]-r_start, col[idx]-c_start] = data[idx]
+    if symmetrize:
+        t_idx = (col >= r_start) & (col < r_stop) & (row >= c_start) & \
+            (row < c_stop)
+        matrix[col[t_idx]-r_start, row[t_idx]-c_start] = data[t_idx]
     return matrix
 
 

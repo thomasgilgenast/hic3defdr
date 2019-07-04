@@ -15,7 +15,7 @@ from fast3defdr.classification import classify
 def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
               disp_idx, loop_idx, design, fdr, cluster_size, vmax=100,
               fdr_vmid=0.05,
-              color_cycle=('blue', 'purple', 'yellow', 'cyan', 'green', 'red'),
+              color_cycle=('blue', 'green', 'purple', 'yellow', 'cyan', 'red'),
               despine=False, **kwargs):
     """
     Plots a combination visualization grid focusing on a specific pixel on a
@@ -87,6 +87,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     f = raw[disp_idx] / scaled[disp_idx]
     n = max(row.max(), col.max()) + 1
     mu_hat_alt = np.dot(mu_hat_alt, design.values.T)
+    mean = np.dot(scaled, design) / np.sum(design, axis=0).values
 
     # set the color cycle over conditions
     cc = color_cycle
@@ -94,8 +95,8 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     # plot
     fig, ax = plt.subplots(design.shape[1] + 1, max_reps + 1,
                            figsize=(design.shape[1] * 6, max_reps * 6))
-    bwr = get_colormap('bwr', set_bad='g')
-    red = get_colormap('Reds', set_bad='g')
+    bwr = get_colormap('bwr', set_bad='lightgray')
+    red = get_colormap('Reds', set_bad='lightgray')
     ax[-1, 0].imshow(
         select_matrix(
             rs, cs, row[disp_idx][loop_idx], col[disp_idx][loop_idx],
@@ -104,10 +105,8 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     ax[-1, 0].set_title('qvalues')
     for c in range(design.shape[1]):
         ax[c, 0].imshow(
-            select_matrix(
-                rs, cs, row[disp_idx], col[disp_idx],
-                mu_hat_alt[:, np.where(design.values[:, c])[0][0]]),
-            cmap=red, interpolation='none', vmin=0, vmax=vmax)
+            select_matrix(rs, cs, row, col, mean[:, c]), cmap=red,
+            interpolation='none', vmin=0, vmax=vmax)
         ax[c, 0].set_ylabel(design.columns[c])
         ax_idx = 1
         for r in range(design.shape[0]):
@@ -118,7 +117,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
                 cmap=red, interpolation='none', vmin=0, vmax=vmax)
             ax[c, ax_idx].set_title(design.index[r])
             ax_idx += 1
-    ax[0, 0].set_title('alt model mean')
+    ax[0, 0].set_title('mean')
     for r in range(design.shape[1] + 1):
         for c in range(max_reps + 1):
             ax[r, c].get_xaxis().set_ticks([])
@@ -203,7 +202,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
             contours.append(contour)
         contour = ax[-1, 0].contour(
             dilate(clusters[fdr][cluster_size]['insig'], 2),
-            [0.5], colors='C7', linewidths=3, extent=extent)
+            [0.5], colors='gray', linewidths=3, extent=extent)
         contour.collections[0].set_label('constitutive')
         contours.append(contour)
         for cond_idx in range(design.shape[1]):
@@ -215,7 +214,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
                 contours.append(contour)
             contour = ax[cond_idx, 0].contour(
                 dilate(clusters[fdr][cluster_size]['insig'], 2),
-                [0.5], colors='C7', linewidths=3, extent=extent)
+                [0.5], colors='gray', linewidths=3, extent=extent)
             contour.collections[0].set_label('constitutive')
             contours.append(contour)
 

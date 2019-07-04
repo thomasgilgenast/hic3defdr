@@ -14,6 +14,7 @@ with open('README.md') as fobj:
 extras_require = {
     'evaluation': ['scikit-learn>=0.20.3'],
     'test': ['nose>=1.3.7', 'nose-exclude>=0.5.0', 'flake8>=3.4.1'],
+    'progress': ['tqdm>=4.32.2'],
 }
 extras_require['complete'] = sorted(set(sum(extras_require.values(), [])))
 

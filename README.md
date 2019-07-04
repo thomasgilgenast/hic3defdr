@@ -31,6 +31,20 @@ an interactive shell started in some other directory:
     (venv)$ python
     >>> from fast3defdr import Fast3DeFDR
 
+### Optional dependencies
+
+Evaluating simulations requires scikit-learn:
+
+    (venv)$ pip install scikit-learn
+
+To display progress bars during selected steps of the analysis, install [tqdm](https://github.com/tqdm/tqdm):
+
+    (venv)$ pip install tqdm
+
+To execute tests, install the following:
+
+    (venv)$ pip install nose nose-exclude flake8
+
 Basic walkthrough
 -----------------
 
@@ -137,28 +151,28 @@ All intermediates used in the computation will be saved to the disk inside the
 `<intermediate>_<chrom>.json` (thresholded or classified clusters), or
 `<intermediate>_<chrom>.pickle` (estimated dispersion functions).
 
-| Step              | Intermediate    | Shape                       | Description                                 |
-|-------------------|-----------------|-----------------------------|---------------------------------------------|
-| `prepare_data()`  | `row`           | `(n_pixels,)`               | Top-level row index                         |
-| `prepare_data()`  | `col`           | `(n_pixels,)`               | Top-level column index                      |
-| `prepare_data()`  | `bias`          | `(n_bins, n_reps)`          | Bias vectors                                |
-| `prepare_data()`  | `raw`           | `(n_pixels, n_reps)`        | Raw count values                            |
-| `prepare_data()`  | `size_factors`  | `(n_reps,)`                 | Size factors                                |
-| `prepare_data()`  | `scaled`        | `(n_pixels, n_reps)`        | Normalized count values                     |
-| `estimate_disp()` | `disp_idx`      | `(n_pixels,)`               | Marks pixels for which dispersion is fitted |
-| `estimate_disp()` | `cov_per_bin`   | `(n_bins, n_conds)`         | Average mean count or distance in each bin  |
-| `estimate_disp()` | `disp_per_bin`  | `(n_bins, n_conds)`         | Pooled dispersion estimates in each bin     |
-| `estimate_disp()` | `disp_fn_<c>`   | pickled function            | Fitted dispersion function                  |
-| `estimate_disp()` | `disp`          | `(disp_idx.sum(), n_conds)` | Smoothed dispersion estimates               |
-| `lrt()`           | `mu_hat_null`   | `(disp_idx.sum(),)`         | Null model mean parameters                  |
-| `lrt()`           | `mu_hat_alt`    | `(disp_idx.sum(), n_conds)` | Alternative model mean parameters           |
-| `lrt()`           | `llr`           | `(disp_idx.sum(),)`         | Log-likelihood ratio                        |
-| `lrt()`           | `pvalues`       | `(disp_idx.sum(),)`         | LRT-based p-value                           |
-| `lrt()`           | `loop_idx`      | `(disp_idx.sum(),)`         | Marks pixels which lie in loops             |
-| `bh()`            | `qvalues`       | `(loop_idx.sum(),)`         | BH-corrected q-values                       |
-| `threshold()`     | `sig_<f>_<s>`   | JSON                        | Significantly differential clusters         |
-| `threshold()`     | `insig_<f>_<s>` | JSON                        | Constitutive clusters                       |
-| `classify()`      | `<c>_<f>_<s>`   | JSON                        | Classified differential clusters            |
+| Step              | Intermediate    | Shape                               | Description                                 |
+|-------------------|-----------------|-------------------------------------|---------------------------------------------|
+| `prepare_data()`  | `row`           | `(n_pixels,)`                       | Top-level row index                         |
+| `prepare_data()`  | `col`           | `(n_pixels,)`                       | Top-level column index                      |
+| `prepare_data()`  | `bias`          | `(n_bins, n_reps)`                  | Bias vectors                                |
+| `prepare_data()`  | `raw`           | `(n_pixels, n_reps)`                | Raw count values                            |
+| `prepare_data()`  | `size_factors`  | `(n_reps,)` or `(n_pixels, n_reps)` | Size factors                                |
+| `prepare_data()`  | `scaled`        | `(n_pixels, n_reps)`                | Normalized count values                     |
+| `estimate_disp()` | `disp_idx`      | `(n_pixels,)`                       | Marks pixels for which dispersion is fitted |
+| `estimate_disp()` | `cov_per_bin`   | `(n_bins, n_conds)`                 | Average mean count or distance in each bin  |
+| `estimate_disp()` | `disp_per_bin`  | `(n_bins, n_conds)`                 | Pooled dispersion estimates in each bin     |
+| `estimate_disp()` | `disp_fn_<c>`   | pickled function                    | Fitted dispersion function                  |
+| `estimate_disp()` | `disp`          | `(disp_idx.sum(), n_conds)`         | Smoothed dispersion estimates               |
+| `lrt()`           | `mu_hat_null`   | `(disp_idx.sum(),)`                 | Null model mean parameters                  |
+| `lrt()`           | `mu_hat_alt`    | `(disp_idx.sum(), n_conds)`         | Alternative model mean parameters           |
+| `lrt()`           | `llr`           | `(disp_idx.sum(),)`                 | Log-likelihood ratio                        |
+| `lrt()`           | `pvalues`       | `(disp_idx.sum(),)`                 | LRT-based p-value                           |
+| `lrt()`           | `loop_idx`      | `(disp_idx.sum(),)`                 | Marks pixels which lie in loops             |
+| `bh()`            | `qvalues`       | `(loop_idx.sum(),)`                 | BH-corrected q-values                       |
+| `threshold()`     | `sig_<f>_<s>`   | JSON                                | Significantly differential clusters         |
+| `threshold()`     | `insig_<f>_<s>` | JSON                                | Constitutive clusters                       |
+| `classify()`      | `<c>_<f>_<s>`   | JSON                                | Classified differential clusters            |
 
 The table uses these abbreviations to refer to variable parts of certain 
 intermediate names:
@@ -212,6 +226,14 @@ loops, pass `idx='loop'`.
     >>> _ = f.plot_qvalue_distribution(outfile='qvalue_dist.png')
 
 ![](images/qvalue_dist.png)
+
+### MA plot
+
+    >>> _ = f.plot_ma('chr18', legend=True, outfile='ma.png')
+
+![](images/ma.png)
+
+To exclude non-loop pixels, pass `include_non_loops=False`.
 
 ### Pixel detail grid
 

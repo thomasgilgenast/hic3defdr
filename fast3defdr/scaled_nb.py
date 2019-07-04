@@ -3,6 +3,7 @@ from scipy.special import gammaln
 from scipy.optimize import newton, brentq
 
 from fast3defdr.logging import eprint
+from fast3defdr.progress import tqdm_maybe as tqdm
 
 
 def logpmf(k, m, phi):
@@ -97,20 +98,21 @@ def fit_mu_hat(x, b, alpha):
     failed[root <= 0] = True  # fail points with negative mu
     failed[root >= np.sqrt(np.finfo(float).max) / 1e10] = True  # these overflow
     failed[~np.isclose(f(root), 0)] = True  # these aren't close
-    for i, idx in enumerate(np.where(failed)[0]):
-        eprint('fixing failed point %s/%s' % (i+1, failed.sum()))
-        lower = 10 * np.finfo(float).eps
-        upper = np.mean(x[idx] / b[idx])
-        counter = 0
-        while True:
-            try:
-                root[idx] = brentq(lambda x: f(x)[idx], lower, upper)
-                break
-            except ValueError:
-                upper *= 2
-                counter += 1
-                if counter > 100:
-                    raise ValueError('bracketing interval not found within '
-                                     '100 doublings')
+    if np.any(failed):
+        eprint('some points failed, fixing with brentq')
+        for idx in tqdm(np.where(failed)[0]):
+            lower = 10 * np.finfo(float).eps
+            upper = np.mean(x[idx] / b[idx])
+            counter = 0
+            while True:
+                try:
+                    root[idx] = brentq(lambda x: f(x)[idx], lower, upper)
+                    break
+                except ValueError:
+                    upper *= 2
+                    counter += 1
+                    if counter > 100:
+                        raise ValueError('bracketing interval not found within '
+                                         '100 doublings')
     assert np.allclose(f(root), 0, atol=1e-5)
     return root

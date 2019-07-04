@@ -8,10 +8,10 @@ import dill as pickle
 from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
 
+import fast3defdr.scaling as scaling
 from fast3defdr.logging import eprint
 from fast3defdr.matrices import sparse_union
 from fast3defdr.clusters import load_clusters, save_clusters
-from fast3defdr.scaling import median_of_ratios
 from fast3defdr.dispersion import estimate_dispersion
 from fast3defdr.lrt import lrt
 from fast3defdr.thresholding import threshold_and_cluster, size_filter
@@ -21,6 +21,7 @@ from fast3defdr.evaluation import make_y_true, evaluate
 from fast3defdr.plotting.distance_dependence import plot_dd_curves
 from fast3defdr.plotting.histograms import plot_pvalue_histogram
 from fast3defdr.plotting.dispersion import plot_mvr
+from fast3defdr.plotting.ma import plot_ma
 from fast3defdr.plotting.grid import plot_grid
 
 
@@ -89,12 +90,11 @@ class Fast3DeFDR(object):
         self.bias_thresh = bias_thresh
         self.mean_thresh = mean_thresh
         self.loop_patterns = loop_patterns
-        if not os.path.isfile(self.picklefile):
-            state = self.__dict__.copy()
-            del state['outdir']
-            check_outdir(self.picklefile)
-            with open(self.picklefile, 'wb') as handle:
-                pickle.dump(state, handle, -1)
+        state = self.__dict__.copy()
+        del state['outdir']
+        check_outdir(self.picklefile)
+        with open(self.picklefile, 'wb') as handle:
+            pickle.dump(state, handle, -1)
 
     @property
     def picklefile(self):
@@ -216,7 +216,7 @@ class Fast3DeFDR(object):
         with open(picklefile, 'wb') as handle:
             return pickle.dump(disp_fn, handle, -1)
 
-    def prepare_data(self, chrom=None):
+    def prepare_data(self, chrom=None, norm='conditional_mor', n_bins=100):
         """
         Prepares raw and normalized data for analysis.
 
@@ -225,10 +225,24 @@ class Fast3DeFDR(object):
         chrom : str
             The name of the chromosome to prepare raw data for. Pass None to run
             for all chromosomes in series.
+        norm : str
+            The method to use to account for differences in sequencing depth.
+            Valid options are:
+                * simple_scaling: scale each replicate to equal total depth
+                * median_of_ratios: use median of ratios normalization, ignoring
+                  pixels at which any replicate has a zero
+                * conditional_scaling: apply simple scaling independently at
+                  each distance scale
+                * conditional_mor: apply median of ratios independently at each
+                  distance scale
+        n_bins : int, optional
+            Number of distance bins to use during scaling normalization if
+            ``norm`` is one of the conditional options. Pass 0 or None to match
+            pixels by exact distance.
         """
         if chrom is None:
             for chrom in self.chroms:
-                self.prepare_data(chrom=chrom)
+                self.prepare_data(chrom=chrom, norm=norm, n_bins=n_bins)
             return
         eprint('preparing data for chrom %s' % chrom)
         eprint('  loading bias')
@@ -255,8 +269,11 @@ class Fast3DeFDR(object):
                 .tocsr()[row, col] / (bias[row, r] * bias[col, r])
 
         eprint('  computing size factors')
-        zero_idx = np.all(balanced > 0, axis=1)
-        size_factors = median_of_ratios(balanced[zero_idx, :])
+        if 'conditional' in norm:
+            size_factors = scaling.__dict__[norm](balanced, col - row,
+                                                  n_bins=n_bins)
+        else:
+            size_factors = scaling.__dict__[norm](balanced)
         scaled = balanced / size_factors
 
         eprint('  saving data to disk')
@@ -360,7 +377,11 @@ class Fast3DeFDR(object):
         disp = self.load_data('disp', chrom)
 
         eprint('  computing LRT results')
-        f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
+        if len(size_factors.shape) == 2:
+            f = bias[row][disp_idx] * bias[col][disp_idx] * \
+                size_factors[disp_idx, :]
+        else:
+            f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
         pvalues, llr, mu_hat_null, mu_hat_alt = lrt(
             raw[disp_idx, :], f, np.dot(disp, self.design.values.T),
             self.design.values)
@@ -406,12 +427,27 @@ class Fast3DeFDR(object):
                            'qvalues', chrom)
             offset += len(pvalues[i])
 
-    def run_to_qvalues(self, estimator='cml', trend='mean', n_bins=100):
+    def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=100,
+                       estimator='cml', trend='mean', n_bins_disp=100):
         """
         Shortcut method to run the analysis to q-values.
 
         Parameters
         ----------
+        norm : str
+            The method to use to account for differences in sequencing depth.
+            Valid options are:
+                * simple_scaling: scale each replicate to equal total depth
+                * median_of_ratios: use median of ratios normalization, ignoring
+                  pixels at which any replicate has a zero
+                * conditional_scaling: apply simple scaling independently at
+                  each distance scale
+                * conditional_mor: apply median of ratios independently at each
+                  distance scale
+        n_bins_norm : int, optional
+            Number of distance bins to use during scaling normalization if
+            ``norm`` is one of the conditional options. Pass 0 or None to match
+            pixels by exact distance.
         estimator : 'cml', 'mme', or a function
             Pass 'cml' or 'mme' to use conditional maximum likelihood or method
             of moments estimation, respectively, to estimate the dispersion
@@ -421,11 +457,11 @@ class Fast3DeFDR(object):
         trend : 'mean' or 'dist'
             Whether to estimate the dispersion trend with respect to mean or
             interaction distance.
-        n_bins : int
+        n_bins_dist : int
             Number of bins to use during dispersion estimation.
         """
-        self.prepare_data()
-        self.estimate_disp(estimator=estimator, trend=trend, n_bins=n_bins)
+        self.prepare_data(norm=norm, n_bins=n_bins_norm)
+        self.estimate_disp(estimator=estimator, trend=trend, n_bins=n_bins_disp)
         self.lrt()
         self.bh()
 
@@ -816,9 +852,61 @@ class Fast3DeFDR(object):
         return plot_pvalue_histogram(
             np.concatenate(qvalues), xlabel='qvalue', **kwargs)
 
+    def plot_ma(self, chrom, fdr=0.05, conds=None, include_non_loops=True, s=1,
+                **kwargs):
+        """
+        Plots an MA plot for a given chromosome.
+
+        Parameters
+        ----------
+        chrom : str
+            The chromosome to plot the MA plot for.
+        fdr : float
+            The threshold to use for labeling significantly differential loop
+            pixels.
+        conds : tuple of str, optional
+            Pass a tuple of two condition names to compare those two
+            conditions. Pass None to compare the first two conditions.
+        include_non_loops : bool
+            Whether or not to include non-looping pixels in the MA plot.
+        s : float
+            The marker size to use for the scatterplot.
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis
+            The axis plotted on.
+        """
+        # resolve conds
+        if conds is None:
+            conds = self.design.columns.tolist()[:2]
+        cond_idx = [self.design.columns.tolist().index(cond) for cond in conds]
+
+        # load data
+        disp_idx = self.load_data('disp_idx', chrom)
+        loop_idx = self.load_data('loop_idx', chrom)
+        scaled = self.load_data('scaled', chrom)[disp_idx, :]
+        qvalues = self.load_data('qvalues', chrom)
+
+        # compute mean
+        mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
+        mean = mean[:, cond_idx]
+
+        # prepare sig_idx
+        sig_idx = qvalues < fdr
+
+        # plot
+        if include_non_loops:
+            plot_ma(mean, sig_idx, loop_idx=loop_idx, names=conds, s=s,
+                    **kwargs)
+        else:
+            plot_ma(mean[loop_idx], sig_idx, names=conds, s=s, **kwargs)
+
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=3,
                   fdr_vmid=0.05,
-                  color_cycle=('blue', 'purple', 'yellow', 'cyan', 'green',
+                  color_cycle=('blue', 'green', 'purple', 'yellow', 'cyan',
                                'red'),
                   despine=False, **kwargs):
         """
