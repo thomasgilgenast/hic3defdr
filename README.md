@@ -200,7 +200,11 @@ The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
 
 ![](images/var.png)
 
-You can also plot the y-axis in units of dispersion by plotting `yaxis='disp'`.
+You can also plot the y-axis in units of dispersion by plotting `yaxis='disp'`:
+
+    >>> _ = f.plot_dispersion_fit('chr18', 'ES', yaxis='disp', outfile='disp.png')
+
+![](images/disp.png)
 
 If dispersion was fitted against distance rather than mean, pass `xaxis='dist'`
 to plot dispersion/variance versus distance.
