@@ -622,7 +622,7 @@ class Fast3DeFDR(object):
 
         # book keeping
         check_outdir('%s/' % outdir)
-        n_sim = len(size_factors)
+        n_sim = size_factors.shape[-1]
         repnames = sum((['%s%i' % (c, i+1) for i in range(n_sim/2)]
                         for c in ['A', 'B']), [])
 
