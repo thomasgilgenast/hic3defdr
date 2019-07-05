@@ -48,6 +48,11 @@ To execute tests, install the following:
 Basic walkthrough
 -----------------
 
+Before we start, we'll seed numpy's random number generator for reproducibility:
+
+    >>> import numpy as np
+    >>> np.random.seed(42)
+
 To analyze the ES_1, ES_3, NPC_2, and NPC_4 reps of the dataset dataset from
 [Bonev et al. 2017](https://www.ncbi.nlm.nih.gov/pubmed/29053968) with default
 parameters, we would first describe the dataset in terms of replicate names,
