@@ -2,10 +2,9 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.special import gammaln
 
-from lib5c.util.lowess import lowess_fit
-
 from fast3defdr.scaled_nb import inverse_mvr
 from fast3defdr.binning import equal_bin
+from fast3defdr.lowess import lowess_fit
 
 
 def cml(data):
