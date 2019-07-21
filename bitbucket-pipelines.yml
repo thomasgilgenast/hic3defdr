@@ -48,7 +48,7 @@ definitions:
     - step: &pypi
         name: PyPI
         script:
-          - pip install twine
+          - pip install docutils==0.14 && pip install twine
           - python setup.py sdist bdist_wheel
           - twine upload --repository-url https://pypi.gilgi.org -u $PYPI_USERNAME -p $PYPI_PASSWORD dist/*
 
