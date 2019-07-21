@@ -2,9 +2,40 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.special import gammaln
 
+from lib5c.algorithms.qnorm import qnorm
+
 from fast3defdr.scaled_nb import inverse_mvr
 from fast3defdr.binning import equal_bin
 from fast3defdr.lowess import lowess_fit
+
+
+def qcml(data):
+    """
+    Estimates the dispersion parameter of a NB distribution given the data via
+    "qnorm-CML", a simplified variant of quantile-adjusted conditional maximum
+    likelihood.
+
+    "qnorm-CML" first applies quantile normalization across the replicates, then
+    applies the normal CML algorithm. This is different than the original
+    quantile-adjusted CML approach proposed in Robinson and Smyth 2008, but
+    might work similarly in practice if the average of multiple scaled negative
+    binomial distributions is approximately negative binomial (though we have no
+    evidence to support this claim).
+
+    One common dispersion will be estimated across all pixels in the data,
+    though the individual pixels in the data may have distinct means.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Rows should correspond to pixels, columns to replicates.
+
+    Returns
+    -------
+    float
+        The estimated dispersion.
+    """
+    return cml(qnorm(data))
 
 
 def cml(data):
@@ -93,11 +124,12 @@ def estimate_dispersion(data, cov, estimator='cml', n_bins=100, logx=False):
         Rows should correspond to pixels, columns to replicates.
     cov : np.ndarray
         A vector of covariate values per pixel.
-    estimator : 'cml', 'mme', or a function
-        Pass 'cml' or 'mme' to use conditional maximum likelihood or method of
-        moments estimation to estimate the dispersion within each bin. Pass a
-        function that takes in a (pixels, replicates) shaped array of data and
-        returns a dispersion value to use that instead.
+    estimator : 'cml', 'qcml', 'mme', or a function
+        Pass 'cml', 'qcml', 'mme' to use conditional maximum likelihood (CML),
+        qnorm-CML (qCML), or method of moments estimation (MME) to estimate the
+        dispersion within each bin. Pass a function that takes in a (pixels,
+        replicates) shaped array of data and returns a dispersion value to use
+        that instead.
     n_bins : int
         The number of bins to use when binning the pixels according to ``cov``.
     logx : bool
@@ -114,8 +146,8 @@ def estimate_dispersion(data, cov, estimator='cml', n_bins=100, logx=False):
         Vectorized function that returns a smoothed dispersion given the value
         of the covariate.
     """
-    if type(estimator) == str and estimator not in {'cml', 'mme'}:
-        raise ValueError('estimator must be \'cml\', \'mme\' or a function')
+    if type(estimator) == str and estimator not in {'cml', 'qcml', 'mme'}:
+        raise ValueError('estimator must be cml, qcml, mme, or a function')
     disp_func = globals()[estimator] if estimator in globals().keys() \
         else estimator
     bins = equal_bin(cov, n_bins)

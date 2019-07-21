@@ -294,12 +294,12 @@ class Fast3DeFDR(object):
         chrom : str
             The name of the chromosome to prepare data for. Pass None to run for
             all chromosomes in series.
-        estimator : 'cml', 'mme', or a function
-            Pass 'cml' or 'mme' to use conditional maximum likelihood or method
-            of moments estimation, respectively, to estimate the dispersion
-            within each bin. Pass a function that takes in a
-            (pixels, replicates) shaped array of data and returns a dispersion
-            value to use that instead.
+        estimator : 'cml', 'qcml', 'mme', or a function
+            Pass 'cml', 'qcml', 'mme' to use conditional maximum likelihood
+            (CML), quantile-adjusted CML (qCML), or method of moments estimation
+            (MME) to estimate the dispersion within each bin. Pass a function
+            that takes in a (pixels, replicates) shaped array of data and
+            returns a dispersion value to use that instead.
         trend : 'mean' or 'dist'
             Whether to estimate the dispersion trend with respect to mean or
             interaction distance.
@@ -449,16 +449,16 @@ class Fast3DeFDR(object):
             Number of distance bins to use during scaling normalization if
             ``norm`` is one of the conditional options. Pass 0 or None to match
             pixels by exact distance.
-        estimator : 'cml', 'mme', or a function
-            Pass 'cml' or 'mme' to use conditional maximum likelihood or method
-            of moments estimation, respectively, to estimate the dispersion
-            within each bin. Pass a function that takes in a
-            (pixels, replicates) shaped array of data and returns a dispersion
-            value to use that instead.
+        estimator : 'cml', 'qcml', 'mme', or a function
+            Pass 'cml', 'qcml', 'mme' to use conditional maximum likelihood
+            (CML), qnorm-CML (qCML), or method of moments estimation (MME) to
+            estimate the dispersion within each bin. Pass a function that takes
+            in a (pixels, replicates) shaped array of data and returns a
+            dispersion value to use that instead.
         trend : 'mean' or 'dist'
             Whether to estimate the dispersion trend with respect to mean or
             interaction distance.
-        n_bins_dist : int
+        n_bins_disp : int
             Number of bins to use during dispersion estimation.
         """
         self.prepare_data(norm=norm, n_bins=n_bins_norm)
