@@ -54,6 +54,6 @@ def plot_ma(data, sig_idx, loop_idx=None, names=None, s=1, **kwargs):
                 if names is not None else 'strengthening loop pixels')
 
     # cleanup
-    plt.xlabel('mean log expression')
+    plt.xlabel('mean log interaction strength')
     plt.ylabel('log fold change' +
                (' (%s over %s)' % tuple(names) if names is not None else ''))

@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.interpolate import interp1d
 
 from lib5c.util.mathematics import gmean
 
@@ -52,6 +53,9 @@ def conditional(data, dist, fn, n_bins=None):
     Applies a size factor computing function ``fn`` to ``data`` conditioning on
     ``dist``, optionally binning ``dist`` into ``n_bins`` equal-number bins.
 
+    If ``n_bins`` is not None, the final size factors will be interpolated for
+    interaction distances falling between the bins to avoid bin edge effects.
+
     Parameters
     ----------
     data : np.ndarray
@@ -66,11 +70,21 @@ def conditional(data, dist, fn, n_bins=None):
     result = np.zeros_like(data, dtype=float)
     if n_bins:
         bins = equal_bin(dist, n_bins)
+        d_per_bin = []
+        s_per_bin = []
+        for b in tqdm(np.unique(bins)):
+            dist_idx = bins == b
+            d_per_bin.append(np.mean(dist[dist_idx]))
+            s_per_bin.append(fn(data[dist_idx, :]))
+        interp_fns = [interp1d(np.array(d_per_bin), np.array(s_per_bin)[:, i],
+                               fill_value='extrapolate', assume_sorted=True)
+                      for i in range(data.shape[1])]
+        for i in range(data.shape[1]):
+            result[:, i] = interp_fns[i](dist)
     else:
-        bins = dist
-    for b in tqdm(np.unique(bins)):
-        dist_idx = bins == b
-        result[dist_idx, :] = fn(data[dist_idx, :])
+        for d in tqdm(np.unique(dist)):
+            dist_idx = dist == d
+            result[dist_idx, :] = fn(data[dist_idx, :])
     return result
 
 
