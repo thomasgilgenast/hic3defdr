@@ -1,5 +1,5 @@
-fast3defdr
-==========
+hic3defdr
+=========
 
 a genome-scale differential loop finder
 
@@ -13,23 +13,23 @@ A typical quick install process should be:
     $ virtualenv venv
     $ source venv/bin/activate
     (venv)$ pip install numpy
-    (venv)$ pip install git+https://<username>@bitbucket.org/creminslab/fast3defdr.git
+    (venv)$ pip install --extra-index-url https://pypi.gilgi.org hic3defdr
 
 A typical dev-mode install process should be:
 
-    $ git clone https://<username>@bitbucket.org/creminslab/fast3defdr.git
-    $ cd fast3defdr
+    $ git clone https://<username>@bitbucket.org/creminslab/hic3defdr.git
+    $ cd hic3defdr
     $ virtualenv venv
     $ source venv/bin/activate
     (venv)$ pip install numpy
     (venv)$ pip install -e .
 
-If installation succeeded then `fast3defdr.Fast3DeFDR` should be importable from
+If installation succeeded then `hic3defdr.HiC3DeFDR` should be importable from
 an interactive shell started in some other directory:
 
     (venv)$ cd <some other directory>
     (venv)$ python
-    >>> from fast3defdr import Fast3DeFDR
+    >>> from hic3defdr import HiC3DeFDR
 
 ### Optional dependencies
 
@@ -80,13 +80,13 @@ The required input files consist of:
    present in each condition
 
 We would next describe the location of the input data files and use those to
-construct a `Fast3DeFDR` object:
+construct a `HiC3DeFDR` object:
 
     >>> import os.path
-    >>> from fast3defdr import Fast3DeFDR
+    >>> from hic3defdr import HiC3DeFDR
     >>>
     >>> base_path = os.path.expanduser('~/data/bonev/')
-    >>> f = Fast3DeFDR(
+    >>> f = HiC3DeFDR(
     ...     raw_npz_patterns=[base_path + '<rep>/<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
     ...     bias_patterns=[base_path + '<rep>/<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
     ...     chroms=chroms,
@@ -98,7 +98,7 @@ construct a `Fast3DeFDR` object:
 
 This object saves itself to disk, so it can be re-loaded at any time:
 
-    >>> f = Fast3DeFDR.load('output')
+    >>> f = HiC3DeFDR.load('output')
 
 To run the analysis for all chromosomes through q-values, run:
 
@@ -191,7 +191,7 @@ TODO: add a tsv-style output file
 Visualizations
 --------------
 
-The `Fast3DeFDR` object can be used to draw visualizations of the analysis.
+The `HiC3DeFDR` object can be used to draw visualizations of the analysis.
 
 ### Distance dependence curves before and after scaling
 
@@ -281,9 +281,9 @@ thresholds on a live-updating plot by running:
     %matplotlib notebook
 
     from ipywidgets import interact
-    from fast3defdr import Fast3DeFDR
+    from hic3defdr import HiC3DeFDR
     
-    f = Fast3DeFDR.load('output')
+    f = HiC3DeFDR.load('output')
     _, _, outline_clusters = f.plot_grid('chr18', 2218, 2236, 50)
     _ = interact(outline_clusters, fdr=[0.01, 0.05, 0.1, 0.2],
                  cluster_size=[3, 4])
@@ -291,7 +291,7 @@ thresholds on a live-updating plot by running:
 Simulation
 ----------
 
-After the `estimate_disp()` step has been run, a Fast3DeFDR object with exactly
+After the `estimate_disp()` step has been run, a HiC3DeFDR object with exactly
 two conditions and an equal number of replicates per condition can be used to
 generate simulations of differential looping.
 
@@ -300,9 +300,9 @@ generate simulations of differential looping.
 To create an ES-based simulation over all chromosomes listed in `f.chroms`, we
 run
 
-    >>> from fast3defdr import Fast3DeFDR
+    >>> from hic3defdr import HiC3DeFDR
     >>>
-    >>> f = Fast3DeFDR.load('output')
+    >>> f = HiC3DeFDR.load('output')
     >>> f.simulate('ES')
     creating directory sim
 
@@ -332,8 +332,8 @@ cluster. This file can be loaded with `np.loadtxt(..., dtype='|S7')`.
 
 ### Evaluating simulations
 
-After generating simulated data, Fast3DeFDR can be run on the simulated data.
-Then, the true labels can be used to evaluate the performance of Fast3DeFDR on
+After generating simulated data, HiC3DeFDR can be run on the simulated data.
+Then, the true labels can be used to evaluate the performance of HiC3DeFDR on
 the simulated data.
 
 Evaluation of simulated data requires scikit-learn. To install this package,
@@ -341,7 +341,7 @@ run
 
     (venv)$ pip install scikit-learn
 
-In order to run Fast3DeFDR on the simulated data, we first need to balance the
+In order to run HiC3DeFDR on the simulated data, we first need to balance the
 simulated raw contact matrices to obtain bias vectors for each simulated
 replicate and chromosome. We will assume are saved next to the raw contact
 matrices and named `<rep>_<chrom>_kr.bias`. One example of how this can be done
@@ -371,17 +371,17 @@ the following script:
     ...             filter_sparse_rows_count(sparse.load_npz(infile)), fl=0)
     ...         np.savetxt(outfile, bias)
 
-Next, we create a new Fast3DeFDR object to analyze the simulated data and run
+Next, we create a new HiC3DeFDR object to analyze the simulated data and run
 the analysis through to q-values:
 
     >>> import os.path
-    >>> from fast3defdr import Fast3DeFDR
+    >>> from hic3defdr import HiC3DeFDR
     >>>
     >>> repnames = ['A1', 'A2', 'B1', 'B2']
     >>> chroms = ['chr18', 'chr19']
     >>> sim_path = 'sim/'
     >>> base_path = os.path.expanduser('~/data/bonev/')
-    >>> f_sim = Fast3DeFDR(
+    >>> f_sim = HiC3DeFDR(
     ...     raw_npz_patterns=[sim_path + '<rep>_<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
     ...     bias_patterns=[sim_path + '<rep>_<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
     ...     chroms=chroms,
@@ -411,10 +411,10 @@ dimensional vectors:
 and FDR control curves by running:
 
     >>> import numpy as np
-    >>> from fast3defdr import plot_roc, plot_fdr
+    >>> from hic3defdr import plot_roc, plot_fdr
     >>>
-    >>> _ = plot_roc([np.load('output-sim/eval.npz')], ['fast3defdr'], outfile='roc.png')
-    >>> _ = plot_fdr([np.load('output-sim/eval.npz')], ['fast3defdr'], outfile='fdr.png')
+    >>> _ = plot_roc([np.load('output-sim/eval.npz')], ['hic3defdr'], outfile='roc.png')
+    >>> _ = plot_fdr([np.load('output-sim/eval.npz')], ['hic3defdr'], outfile='fdr.png')
 
 ![](images/roc.png)
 ![](images/fdr.png)

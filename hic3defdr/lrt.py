@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.stats as stats
 
-from fast3defdr.scaled_nb import logpmf, fit_mu_hat
+from hic3defdr.scaled_nb import logpmf, fit_mu_hat
 
 
 def lrt(raw, f, disp, design):

@@ -8,27 +8,27 @@ import dill as pickle
 from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
 
-import fast3defdr.scaling as scaling
-from fast3defdr.logging import eprint
-from fast3defdr.matrices import sparse_union
-from fast3defdr.clusters import load_clusters, save_clusters
-from fast3defdr.dispersion import estimate_dispersion
-from fast3defdr.lrt import lrt
-from fast3defdr.thresholding import threshold_and_cluster, size_filter
-from fast3defdr.classification import classify
-from fast3defdr.simulation import simulate
-from fast3defdr.evaluation import make_y_true, evaluate
-from fast3defdr.plotting.distance_dependence import plot_dd_curves
-from fast3defdr.plotting.histograms import plot_pvalue_histogram
-from fast3defdr.plotting.dispersion import plot_mvr
-from fast3defdr.plotting.ma import plot_ma
-from fast3defdr.plotting.grid import plot_grid
-from fast3defdr.progress import tqdm_maybe as tqdm
+import hic3defdr.scaling as scaling
+from hic3defdr.logging import eprint
+from hic3defdr.matrices import sparse_union
+from hic3defdr.clusters import load_clusters, save_clusters
+from hic3defdr.dispersion import estimate_dispersion
+from hic3defdr.lrt import lrt
+from hic3defdr.thresholding import threshold_and_cluster, size_filter
+from hic3defdr.classification import classify
+from hic3defdr.simulation import simulate
+from hic3defdr.evaluation import make_y_true, evaluate
+from hic3defdr.plotting.distance_dependence import plot_dd_curves
+from hic3defdr.plotting.histograms import plot_pvalue_histogram
+from hic3defdr.plotting.dispersion import plot_mvr
+from hic3defdr.plotting.ma import plot_ma
+from hic3defdr.plotting.grid import plot_grid
+from hic3defdr.progress import tqdm_maybe as tqdm
 
 
-class Fast3DeFDR(object):
+class HiC3DeFDR(object):
     """
-    Main object for fast3defdr analysis.
+    Main object for hic3defdr analysis.
 
     Attributes
     ----------
@@ -53,7 +53,7 @@ class Fast3DeFDR(object):
         ``pd.read_csv(design, index_col=0)``.
     outdir : str
         Specify a directory to store the results of the analysis. Two different
-        Fast3DeFDR analyses cannot co-exist in the same directory. The directory
+        HiC3DeFDR analyses cannot co-exist in the same directory. The directory
         will be created if it does not exist.
     dist_thresh_min, dist_thresh_max : int
         The minimum and maximum interaction distance (in bin units) to include
@@ -76,7 +76,7 @@ class Fast3DeFDR(object):
                  dist_thresh_min=4, dist_thresh_max=1000, bias_thresh=0.1,
                  mean_thresh=5.0, loop_patterns=None):
         """
-        Base constructor. See ``help(Fast3DeFDR)`` for details.
+        Base constructor. See ``help(HiC3DeFDR)`` for details.
         """
         self.raw_npz_patterns = raw_npz_patterns
         self.bias_patterns = bias_patterns
@@ -104,18 +104,18 @@ class Fast3DeFDR(object):
     @classmethod
     def load(cls, outdir):
         """
-        Loads a Fast3DeFDR analysis object from disk.
+        Loads a HiC3DeFDR analysis object from disk.
 
         It is safe to have multiple instances of the same analysis open at once.
 
         Parameters
         ----------
         outdir : str
-            Folder path to where the Fast3DeFDR was saved.
+            Folder path to where the HiC3DeFDR was saved.
 
         Returns
         -------
-        Fast3DeFDR
+        HiC3DeFDR
             The loaded object.
         """
         with open('%s/pickle' % outdir, 'rb') as handle:

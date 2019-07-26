@@ -208,7 +208,7 @@ def clusters_to_coo(clusters, shape):
 
     Examples
     --------
-    >>> from fast3defdr.clusters import clusters_to_coo
+    >>> from hic3defdr.clusters import clusters_to_coo
     >>> coo = clusters_to_coo([[(1, 2), (1, 1)], [(4, 4),  (3, 4)]], (5, 5))
     >>> coo.toarray()
     array([[False, False, False, False, False],

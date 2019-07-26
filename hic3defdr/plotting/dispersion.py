@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from lib5c.util.plotting import plotter
 from lib5c.plotters.scatter import scatter
 
-from fast3defdr.scaled_nb import mvr, inverse_mvr
+from hic3defdr.scaled_nb import mvr, inverse_mvr
 
 
 @plotter

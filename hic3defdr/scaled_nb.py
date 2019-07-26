@@ -2,8 +2,8 @@ import numpy as np
 from scipy.special import gammaln
 from scipy.optimize import newton, brentq
 
-from fast3defdr.logging import eprint
-from fast3defdr.progress import tqdm_maybe as tqdm
+from hic3defdr.logging import eprint
+from hic3defdr.progress import tqdm_maybe as tqdm
 
 
 def logpmf(k, m, phi):

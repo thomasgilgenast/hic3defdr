@@ -32,7 +32,7 @@ definitions:
         script:
           - source ~/venv/bin/activate
           - 'mkdir -p ~/.config/matplotlib && echo "backend: agg" > ~/.config/matplotlib/matplotlibrc'
-          - flake8 fast3defdr
+          - flake8 hic3defdr
           - nosetests
           - python -m doctest README.md
         artifacts:

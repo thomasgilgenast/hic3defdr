@@ -4,9 +4,9 @@ from scipy.special import gammaln
 
 from lib5c.algorithms.qnorm import qnorm
 
-from fast3defdr.scaled_nb import inverse_mvr
-from fast3defdr.binning import equal_bin
-from fast3defdr.lowess import lowess_fit
+from hic3defdr.scaled_nb import inverse_mvr
+from hic3defdr.binning import equal_bin
+from hic3defdr.lowess import lowess_fit
 
 
 def qcml(data):

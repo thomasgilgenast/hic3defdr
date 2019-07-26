@@ -5,7 +5,7 @@ import versioneer
 readme_note = """\
 .. note::
    For the latest source, discussion, etc, please visit the
-   `Bitbucket repository <https://bitbucket.org/creminslab/fast3defdr>`_\n\n
+   `Bitbucket repository <https://bitbucket.org/creminslab/hic3defdr>`_\n\n
 """
 
 with open('README.md') as fobj:
@@ -19,13 +19,13 @@ extras_require = {
 extras_require['complete'] = sorted(set(sum(extras_require.values(), [])))
 
 setup(
-    name='fast3defdr',
+    name='hic3defdr',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     description='a genome-scale differential loop finder',
     long_description=long_description,
     author='Thomas Gilgenast',
-    url='https://bitbucket.org/creminslab/fast3defdr',
+    url='https://bitbucket.org/creminslab/hic3defdr',
     packages=find_packages(),
     install_requires=[
         'numpy>=1.14.0',

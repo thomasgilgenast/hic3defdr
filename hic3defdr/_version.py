@@ -42,8 +42,8 @@ def get_config():
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = ""
-    cfg.parentdir_prefix = "fast3defdr-"
-    cfg.versionfile_source = "fast3defdr/_version.py"
+    cfg.parentdir_prefix = "hic3defdr-"
+    cfg.versionfile_source = "hic3defdr/_version.py"
     cfg.verbose = False
     return cfg
 

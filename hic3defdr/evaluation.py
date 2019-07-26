@@ -1,6 +1,6 @@
 import numpy as np
 
-from fast3defdr.progress import tqdm_maybe as tqdm
+from hic3defdr.progress import tqdm_maybe as tqdm
 
 try:
     from sklearn.metrics import roc_curve, confusion_matrix

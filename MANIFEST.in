@@ -1,2 +1,2 @@
 include versioneer.py
-include fast3defdr/_version.py
+include hic3defdr/_version.py

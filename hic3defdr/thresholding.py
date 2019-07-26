@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sparse
 
-from fast3defdr.clusters import find_clusters
+from hic3defdr.clusters import find_clusters
 
 
 def threshold_and_cluster(qvalues, row, col, fdr):

@@ -5,10 +5,10 @@ import seaborn as sns
 from lib5c.util.plotting import plotter
 from lib5c.plotters.colormaps import get_colormap
 
-from fast3defdr.matrices import select_matrix, dilate
-from fast3defdr.thresholding import threshold_and_cluster, size_filter
-from fast3defdr.clusters import clusters_to_coo
-from fast3defdr.classification import classify
+from hic3defdr.matrices import select_matrix, dilate
+from hic3defdr.thresholding import threshold_and_cluster, size_filter
+from hic3defdr.clusters import clusters_to_coo
+from hic3defdr.classification import classify
 
 
 @plotter
