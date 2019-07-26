@@ -86,7 +86,7 @@ construct a `HiC3DeFDR` object:
     >>> from hic3defdr import HiC3DeFDR
     >>>
     >>> base_path = os.path.expanduser('~/data/bonev/')
-    >>> f = HiC3DeFDR(
+    >>> h = HiC3DeFDR(
     ...     raw_npz_patterns=[base_path + '<rep>/<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
     ...     bias_patterns=[base_path + '<rep>/<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
     ...     chroms=chroms,
@@ -98,26 +98,26 @@ construct a `HiC3DeFDR` object:
 
 This object saves itself to disk, so it can be re-loaded at any time:
 
-    >>> f = HiC3DeFDR.load('output')
+    >>> h = HiC3DeFDR.load('output')
 
 To run the analysis for all chromosomes through q-values, run:
 
-    >>> f.run_to_qvalues()
+    >>> h.run_to_qvalues()
 
 To threshold, cluster, and classify the significantly differential loops, run:
 
-    >>> f.classify()
+    >>> h.classify()
 
 Step-by-step walkthrough
 ------------------------
 
 We prepare the input data and compute the size factors with:
 
-    >>> f.prepare_data()
+    >>> h.prepare_data()
 
 We estimate dispersions with:
 
-    >>> f.estimate_disp()
+    >>> h.estimate_disp()
 
 By default, dispersion will be estimated as a function of the pixel-wise
 normalized mean. To fit dispersion as a function of distance instead, pass
@@ -125,23 +125,23 @@ normalized mean. To fit dispersion as a function of distance instead, pass
 
 We perform the likelihood ratio test to obtain p-values with:
 
-    >>> f.lrt()
+    >>> h.lrt()
 
 We apply BH-FDR correction to the p-values across all chromosomes to obtain 
 q-values:
 
-    >>> f.bh()
+    >>> h.bh()
 
 We threshold, cluster, and classify the significantly differential loops:
 
-    >>> f.classify(fdr=0.05, cluster_size=3)
+    >>> h.classify(fdr=0.05, cluster_size=3)
 
 We can also sweep across FDR and/or cluster size thresholds:
 
-    >>> f.classify(fdr=[0.01, 0.05], cluster_size=[3, 4])
+    >>> h.classify(fdr=[0.01, 0.05], cluster_size=[3, 4])
 
-`f.classify()` calls `f.threshold()` automatically for FDR and cluster size 
-thresholds that have not been run yet. `f.threshold()` is the step that performs 
+`h.classify()` calls `h.threshold()` automatically for FDR and cluster size
+thresholds that have not been run yet. `h.threshold()` is the step that performs
 thresholding and clustering but not classification.
 
 The complete analysis of these four specific replicates of the Bonev et al.
@@ -195,19 +195,19 @@ The `HiC3DeFDR` object can be used to draw visualizations of the analysis.
 
 ### Distance dependence curves before and after scaling
 
-    >>> _ = f.plot_dd_curves('chr18', outfile='dd.png')
+    >>> _ = h.plot_dd_curves('chr18', outfile='dd.png')
 
 ![](images/dd.png)
 
 ### Dispersion fitting
 
-    >>> _ = f.plot_dispersion_fit('chr18', 'ES', outfile='var.png')
+    >>> _ = h.plot_dispersion_fit('chr18', 'ES', outfile='var.png')
 
 ![](images/var.png)
 
 You can also plot the y-axis in units of dispersion by plotting `yaxis='disp'`:
 
-    >>> _ = f.plot_dispersion_fit('chr18', 'ES', yaxis='disp', outfile='disp.png')
+    >>> _ = h.plot_dispersion_fit('chr18', 'ES', yaxis='disp', outfile='disp.png')
 
 ![](images/disp.png)
 
@@ -222,7 +222,7 @@ for 100 selected points as a scatterplot.
 
 ### P-value distribution
 
-    >>> _ = f.plot_pvalue_distribution(outfile='pvalue_dist.png')
+    >>> _ = h.plot_pvalue_distribution(outfile='pvalue_dist.png')
 
 ![](images/pvalue_dist.png)
 
@@ -232,13 +232,13 @@ loops, pass `idx='loop'`.
 
 ### Q-value distribution
 
-    >>> _ = f.plot_qvalue_distribution(outfile='qvalue_dist.png')
+    >>> _ = h.plot_qvalue_distribution(outfile='qvalue_dist.png')
 
 ![](images/qvalue_dist.png)
 
 ### MA plot
 
-    >>> _ = f.plot_ma('chr18', legend=True, outfile='ma.png')
+    >>> _ = h.plot_ma('chr18', legend=True, outfile='ma.png')
 
 ![](images/ma.png)
 
@@ -246,7 +246,7 @@ To exclude non-loop pixels, pass `include_non_loops=False`.
 
 ### Pixel detail grid
 
-    >>> _ = f.plot_grid('chr18', 2218, 2236, 50, outfile='grid.png')
+    >>> _ = h.plot_grid('chr18', 2218, 2236, 50, outfile='grid.png')
 
 ![](images/grid.png)
 
@@ -283,8 +283,8 @@ thresholds on a live-updating plot by running:
     from ipywidgets import interact
     from hic3defdr import HiC3DeFDR
     
-    f = HiC3DeFDR.load('output')
-    _, _, outline_clusters = f.plot_grid('chr18', 2218, 2236, 50)
+    h = HiC3DeFDR.load('output')
+    _, _, outline_clusters = h.plot_grid('chr18', 2218, 2236, 50)
     _ = interact(outline_clusters, fdr=[0.01, 0.05, 0.1, 0.2],
                  cluster_size=[3, 4])
 
@@ -297,21 +297,21 @@ generate simulations of differential looping.
 
 ### Generating simulations
 
-To create an ES-based simulation over all chromosomes listed in `f.chroms`, we
+To create an ES-based simulation over all chromosomes listed in `h.chroms`, we
 run
 
     >>> from hic3defdr import HiC3DeFDR
     >>>
-    >>> f = HiC3DeFDR.load('output')
-    >>> f.simulate('ES')
+    >>> h = HiC3DeFDR.load('output')
+    >>> h.simulate('ES')
     creating directory sim
 
-If we passed `trend='dist'` to `f.estimate_disp()`, we need to pass it to
-`f.simulate()` as well to ensure that the simulation function knows to treat
+If we passed `trend='dist'` to `h.estimate_disp()`, we need to pass it to
+`h.simulate()` as well to ensure that the simulation function knows to treat
 the previously-fitted dispersion function as a function of distance.
 
 This takes the mean of the real scaled data across the ES replicates and
-perturbs the loops specified in `f.loop_patterns['ES']` up or down at random to
+perturbs the loops specified in `h.loop_patterns['ES']` up or down at random to
 generate two new conditions called "A" and "B". The scaled mean matrices for
 these conditions are then biased and scaled by the bias vectors and size
 factors taken from the real data, and the ES dispersion function fitted to the
@@ -327,7 +327,7 @@ as `design.csv`.
 
 The true labels used to perturb the loops will also be written to disk as
 `labels_<chrom>.txt`. This file contains as many lines as there are clusters in
-`f.loop_patterns['ES']`, with the `i`th line providing the label for the `i`th
+`h.loop_patterns['ES']`, with the `i`th line providing the label for the `i`th
 cluster. This file can be loaded with `np.loadtxt(..., dtype='|S7')`.
 
 ### Evaluating simulations
@@ -381,7 +381,7 @@ the analysis through to q-values:
     >>> chroms = ['chr18', 'chr19']
     >>> sim_path = 'sim/'
     >>> base_path = os.path.expanduser('~/data/bonev/')
-    >>> f_sim = HiC3DeFDR(
+    >>> h_sim = HiC3DeFDR(
     ...     raw_npz_patterns=[sim_path + '<rep>_<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
     ...     bias_patterns=[sim_path + '<rep>_<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
     ...     chroms=chroms,
@@ -390,14 +390,14 @@ the analysis through to q-values:
     ...     loop_patterns={'ES': base_path + 'clusters/ES_<chrom>_clusters.json'}
     ... )
     creating directory output-sim
-    >>> f_sim.run_to_qvalues()
+    >>> h_sim.run_to_qvalues()
 
 Next, we can evaluate the simulation against the clusters in
-`f_sim.loop_patterns['ES']` with true labels from `sim/labels_<chrom>.txt`:
+`h_sim.loop_patterns['ES']` with true labels from `sim/labels_<chrom>.txt`:
 
-    >>> f_sim.evaluate('ES', 'sim/labels_<chrom>.txt')
+    >>> h_sim.evaluate('ES', 'sim/labels_<chrom>.txt')
 
-This writes a file in `f_sim`'s output directory called `eval.npz`. This file
+This writes a file in `h_sim`'s output directory called `eval.npz`. This file
 can be loaded with `np.load()` and has four keys whose values are all one
 dimensional vectors:
 

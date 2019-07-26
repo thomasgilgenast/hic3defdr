@@ -4,6 +4,7 @@
 !images/*.png
 .idea
 .vscode
+venv
 test
 build
 dist
