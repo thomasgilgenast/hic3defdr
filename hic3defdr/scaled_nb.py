@@ -92,12 +92,12 @@ def fit_mu_hat(x, b, alpha):
         if hasattr(mu_hat, 'ndim') and mu_hat.ndim < b.ndim:
             mu_hat = mu_hat[:, None]
         return np.sum((x - mu_hat*b) / (mu_hat + alpha * mu_hat**2 * b), axis=1)
-    root, converged, zero_der = newton(f, np.mean(x / b, axis=1), maxiter=1000,
+    root, converged, zero_der = newton(f, np.mean(x / b, axis=1), maxiter=100,
                                        full_output=True)
     failed = ~converged | zero_der
     failed[root <= 0] = True  # fail points with negative mu
     failed[root >= np.sqrt(np.finfo(float).max) / 1e10] = True  # these overflow
-    failed[~np.isclose(f(root), 0)] = True  # these aren't close
+    failed[~np.isclose(f(root), 0, atol=1e-5)] = True  # these aren't close
     if np.any(failed):
         eprint('some points failed, fixing with brentq')
         for idx in tqdm(np.where(failed)[0]):
