@@ -773,8 +773,8 @@ class HiC3DeFDR(object):
                               **kwargs)
 
     def plot_dispersion_fit(self, cond, xaxis='mean', yaxis='var', dist_max=200,
-                            scatter_fit=-1, scatter_size=36, logx=True,
-                            logy=True, **kwargs):
+                            scatter_fit=-1, scatter_size=36, distance=None,
+                            logx=True, logy=True, **kwargs):
         """
         Plots a hexbin plot of pixel-wise distance vs either dispersion or
         variance, overlaying the estimated and fitted dispersions.
@@ -798,6 +798,9 @@ class HiC3DeFDR(object):
             Pass 0 to omit plotting the dispersion estimates altogether.
         scatter_size : int
             The marker size when plotting scatterplots.
+        distance : int, optional
+            Pick a specific distance in bin units to plot only interactions at
+            that distance.
         logx, logy : bool
             Whether or not to log the x- or y-axis, respectively.
         kwargs : kwargs
@@ -832,6 +835,19 @@ class HiC3DeFDR(object):
         mean = np.mean(scaled, axis=1)
         var = np.var(scaled, ddof=1, axis=1)
 
+        # resolve distance
+        if distance is not None:
+            dist_idx = dist == distance
+            mean = mean[dist_idx]
+            var = var[dist_idx]
+            dist = None
+            disp = np.ones(dist_idx.sum()) * disp_per_dist[distance]
+            dist_per_bin = None
+            disp_per_bin = None
+            fit_align_dist = False
+        else:
+            fit_align_dist = xaxis == 'mean' or yaxis == 'var'
+
         return plot_mvr(
             pixel_mean=mean,
             pixel_var=var,
@@ -839,7 +855,7 @@ class HiC3DeFDR(object):
             pixel_disp_fit=disp,
             dist_per_bin=dist_per_bin,
             disp_per_bin=disp_per_bin,
-            fit_align_dist=xaxis == 'mean' or yaxis == 'var',
+            fit_align_dist=fit_align_dist,
             xaxis=xaxis, yaxis=yaxis,
             dist_max=dist_max, mean_min=self.mean_thresh,
             scatter_fit=scatter_fit, scatter_size=scatter_size,

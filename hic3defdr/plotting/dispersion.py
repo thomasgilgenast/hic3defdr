@@ -180,8 +180,11 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
         ((cloud_y > 0) if logy else True) & \
         ((cloud_x > 0) if logx else True) & \
         ((pixel_dist <= dist_max) if xaxis == 'dist' else True)
-    bin_idx = np.isfinite(bin_x) & np.isfinite(bin_y) & \
-        ((bin_y > 0) if logy else True) & ((bin_x > 0) if logx else True)
+    try:
+        bin_idx = np.isfinite(bin_x) & np.isfinite(bin_y) & \
+            ((bin_y > 0) if logy else True) & ((bin_x > 0) if logx else True)
+    except TypeError:
+        bin_idx = None
     fit_idx = np.isfinite(fit_x) & np.isfinite(fit_y) & \
         ((fit_y > 0) if logy else True) & ((fit_x > 0) if logx else True)
 
