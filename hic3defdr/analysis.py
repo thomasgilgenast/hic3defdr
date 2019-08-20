@@ -820,10 +820,10 @@ class HiC3DeFDR(object):
             disp_per_dist = self.load_data('disp_per_dist')[:, cond_idx]
             idx = np.isfinite(disp_per_dist)
             disp_per_bin = disp_per_dist[idx]
-            cov_per_bin = np.arange(self.dist_thresh_max + 1)[idx]
+            dist_per_bin = np.arange(self.dist_thresh_max + 1)[idx]
         except IOError:
             disp_per_bin = None
-            cov_per_bin = None
+            dist_per_bin = None
         row, _ = self.load_data('row', 'all', idx=disp_idx)
         col, _ = self.load_data('col', 'all', idx=disp_idx)
         dist = col - row
@@ -832,13 +832,19 @@ class HiC3DeFDR(object):
         mean = np.mean(scaled, axis=1)
         var = np.var(scaled, ddof=1, axis=1)
 
-        return plot_mvr(mean, var, disp=disp, cov_per_bin=cov_per_bin,
-                        disp_per_bin=disp_per_bin,
-                        dist=dist if xaxis == 'dist' else None,
-                        dist_max=dist_max, yaxis=yaxis,
-                        mean_thresh=self.mean_thresh,
-                        scatter_fit=scatter_fit, scatter_size=scatter_size,
-                        logx=logx, logy=logy, **kwargs)
+        return plot_mvr(
+            pixel_mean=mean,
+            pixel_var=var,
+            pixel_dist=dist,
+            pixel_disp_fit=disp,
+            dist_per_bin=dist_per_bin,
+            disp_per_bin=disp_per_bin,
+            fit_align_dist=xaxis == 'mean' or yaxis == 'var',
+            xaxis=xaxis, yaxis=yaxis,
+            dist_max=dist_max, mean_min=self.mean_thresh,
+            scatter_fit=scatter_fit, scatter_size=scatter_size,
+            logx=logx, logy=logy, **kwargs
+        )
 
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """
