@@ -118,13 +118,10 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
     # convert pixel_* to dist_* quantities part 2: the fitted values
     dist_var_fit = None
     dist_disp_fit = None
-    if dist_mean is not None:
-        if pixel_var_fit is not None:
-            dist_var_fit = np.array([np.mean(pixel_var_fit[pixel_dist == d])
-                                     for d in dist_range])
-        if pixel_disp_fit is not None:
-            dist_disp_fit = np.array([np.mean(pixel_disp_fit[pixel_dist == d])
-                                      for d in dist_range])
+    if dist_mean is not None and pixel_disp_fit is not None:
+        dist_disp_fit = np.array([np.mean(pixel_disp_fit[pixel_dist == d])
+                                  for d in dist_range])
+        dist_var_fit = mvr(dist_mean, dist_disp_fit)
 
     # establish which y values will go into the cloud, bins, and fit
     if yaxis == 'var':
