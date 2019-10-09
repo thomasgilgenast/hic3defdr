@@ -74,7 +74,7 @@ class HiC3DeFDR(object):
     """
 
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
-                 dist_thresh_min=4, dist_thresh_max=1000, bias_thresh=0.1,
+                 dist_thresh_min=4, dist_thresh_max=500, bias_thresh=0.1,
                  mean_thresh=5.0, loop_patterns=None):
         """
         Base constructor. See ``help(HiC3DeFDR)`` for details.
@@ -224,7 +224,7 @@ class HiC3DeFDR(object):
         """
         if chrom is None:
             np.save('%s/%s.npy' % (self.outdir, name), data)
-        if isinstance(chrom, np.ndarray):
+        elif isinstance(chrom, np.ndarray):
             for i, c in enumerate(self.chroms):
                 self.save_data(data[chrom[i]:chrom[i + 1]], name, c)
         else:
@@ -381,7 +381,7 @@ class HiC3DeFDR(object):
         self.save_data(disp, 'disp', offsets)
         self.save_data(disp_per_dist, 'disp_per_dist')
 
-    def lrt(self, chrom=None):
+    def lrt(self, chrom=None, refit_mu=True):
         """
         Runs the likelihood ratio test to test for differential interactions.
 
@@ -390,6 +390,11 @@ class HiC3DeFDR(object):
         chrom : str
             The name of the chromosome to run the LRT for. Pass None to run for
             all chromosomes in series.
+        refit_mu : bool
+            Pass True to refit the mean parameters in the NB models being
+            compared in the LRT. Pass False to use the means across replicates
+            directly, which is simpler and slightly faster but technically
+            violates the assumptions of the LRT.
         """
         if chrom is None:
             for chrom in self.chroms:
@@ -413,7 +418,7 @@ class HiC3DeFDR(object):
             f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
         pvalues, llr, mu_hat_null, mu_hat_alt = lrt(
             raw[disp_idx, :], f, np.dot(disp, self.design.values.T),
-            self.design.values)
+            self.design.values, refit_mu=refit_mu)
 
         if self.loop_patterns:
             eprint('  making loop_idx')
@@ -457,7 +462,7 @@ class HiC3DeFDR(object):
             offset += len(pvalues[i])
 
     def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=100,
-                       estimator='cml', trend='mean', n_bins_disp=100):
+                       estimator='cml', refit_mu=True):
         """
         Shortcut method to run the analysis to q-values.
 
@@ -483,15 +488,15 @@ class HiC3DeFDR(object):
             estimate the dispersion within each bin. Pass a function that takes
             in a (pixels, replicates) shaped array of data and returns a
             dispersion value to use that instead.
-        trend : 'mean' or 'dist'
-            Whether to estimate the dispersion trend with respect to mean or
-            interaction distance.
-        n_bins_disp : int
-            Number of bins to use during dispersion estimation.
+        refit_mu : bool
+            Pass True to refit the mean parameters in the NB models being
+            compared in the LRT. Pass False to use the means across replicates
+            directly, which is simpler and slightly faster but technically
+            violates the assumptions of the LRT.
         """
         self.prepare_data(norm=norm, n_bins=n_bins_norm)
         self.estimate_disp(estimator=estimator)
-        self.lrt()
+        self.lrt(refit_mu=refit_mu)
         self.bh()
 
     def threshold(self, chrom=None, fdr=0.05, cluster_size=3):
@@ -597,8 +602,7 @@ class HiC3DeFDR(object):
                         c, '%s/%s_%g_%i_%s.json' %
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
-    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, trend='mean',
-                 outdir='sim'):
+    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, outdir='sim'):
         """
         Simulates raw contact matrices based on previously fitted scaled means
         and dispersions in a specific condition.
@@ -622,10 +626,6 @@ class HiC3DeFDR(object):
         p_diff : float
             This fraction of loops will be perturbed across the simulated
             conditions. The remainder will be constitutive.
-        trend : 'mean' or 'dist'
-            The covariate against which dispersion was fitted when calling
-            ``estimate_disp()``. Necessary for correct interpretation of the
-            fitted dispersion function as a function of mean or of distance.
         outdir : str
             Path to a directory to store the simulated data to.
         """
@@ -641,7 +641,7 @@ class HiC3DeFDR(object):
         row = self.load_data('row', chrom)
         col = self.load_data('col', chrom)
         scaled = self.load_data('scaled', chrom)[:, self.design[cond]]
-        disp_fn = self.load_disp_fn(cond, chrom)
+        disp_fn = self.load_disp_fn(cond)
         clusters = load_clusters(
             self.loop_patterns[cond].replace('<chrom>', chrom))
 
@@ -685,7 +685,7 @@ class HiC3DeFDR(object):
         # simulate and save
         classes, sim_iter = simulate(
             row, col, mean, disp_fn, bias, size_factors, clusters, beta=beta,
-            p_diff=p_diff, trend=trend)
+            p_diff=p_diff, trend='dist')
         np.savetxt('%s/labels_%s.txt' % (outdir, chrom), classes, fmt='%s')
         for rep, csr in zip(repnames, sim_iter):
             sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)
@@ -772,9 +772,10 @@ class HiC3DeFDR(object):
         return plot_dd_curves(row, col, balanced, scaled, self.design, log=log,
                               **kwargs)
 
-    def plot_dispersion_fit(self, cond, xaxis='mean', yaxis='var', dist_max=200,
-                            scatter_fit=-1, scatter_size=36, distance=None,
-                            logx=True, logy=True, **kwargs):
+    def plot_dispersion_fit(self, cond, xaxis='dist', yaxis='disp',
+                            dist_max=200, scatter_fit=-1, scatter_size=36,
+                            distance=None, hexbin=False, logx=False, logy=False,
+                            **kwargs):
         """
         Plots a hexbin plot of pixel-wise distance vs either dispersion or
         variance, overlaying the estimated and fitted dispersions.
@@ -801,6 +802,9 @@ class HiC3DeFDR(object):
         distance : int, optional
             Pick a specific distance in bin units to plot only interactions at
             that distance.
+        hexbin : bool
+            Pass False to skip plotting the hexbin plot, leaving only the
+            estimated variances or dispersions.
         logx, logy : bool
             Whether or not to log the x- or y-axis, respectively.
         kwargs : kwargs
@@ -858,7 +862,7 @@ class HiC3DeFDR(object):
             fit_align_dist=fit_align_dist,
             xaxis=xaxis, yaxis=yaxis,
             dist_max=dist_max, mean_min=self.mean_thresh,
-            scatter_fit=scatter_fit, scatter_size=scatter_size,
+            scatter_fit=scatter_fit, scatter_size=scatter_size, hexbin=hexbin,
             logx=logx, logy=logy, **kwargs
         )
 
@@ -913,15 +917,13 @@ class HiC3DeFDR(object):
         # plot
         return plot_pvalue_histogram(qvalues, xlabel='qvalue', **kwargs)
 
-    def plot_ma(self, chrom, fdr=0.05, conds=None, include_non_loops=True, s=1,
+    def plot_ma(self, fdr=0.05, conds=None, include_non_loops=True, s=1,
                 **kwargs):
         """
         Plots an MA plot for a given chromosome.
 
         Parameters
         ----------
-        chrom : str
-            The chromosome to plot the MA plot for.
         fdr : float
             The threshold to use for labeling significantly differential loop
             pixels.
@@ -946,10 +948,10 @@ class HiC3DeFDR(object):
         cond_idx = [self.design.columns.tolist().index(cond) for cond in conds]
 
         # load data
-        disp_idx = self.load_data('disp_idx', chrom)
-        loop_idx = self.load_data('loop_idx', chrom)
-        scaled = self.load_data('scaled', chrom)[disp_idx, :]
-        qvalues = self.load_data('qvalues', chrom)
+        disp_idx, _ = self.load_data('disp_idx', 'all')
+        loop_idx, _ = self.load_data('loop_idx', 'all')
+        scaled, _ = self.load_data('scaled', 'all', idx=disp_idx)
+        qvalues, _ = self.load_data('qvalues', 'all')
 
         # compute mean
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values

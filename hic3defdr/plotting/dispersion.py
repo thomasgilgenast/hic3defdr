@@ -12,8 +12,9 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
              pixel_var_fit=None, pixel_disp_fit=None, mean_per_bin=None,
              dist_per_bin=None, var_per_bin=None, disp_per_bin=None,
              fit_align_dist=False, xaxis='mean', yaxis='var', dist_max=200,
-             mean_min=5.0, scatter_fit=-1, scatter_size=36, logx=True,
-             logy=True, xlim=None, ylim=None, legend=True, **kwargs):
+             mean_min=5.0, scatter_fit=-1, scatter_size=36,
+             hexbin=True, logx=True, logy=True, xlim=None, ylim=None,
+             legend=True, **kwargs):
     """
     Plots pixel-wise, bin-wise, and estimated dispersions in terms of either
     dispersion or variance versus either pixel-wise mean or distance.
@@ -56,6 +57,9 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
         altogether.
     scatter_size : int
         The marker size when plotting scatter plots.
+    hexbin : bool
+        Pass False to skip plotting the hexbins, leaving only the estimated
+        variances or dispersions.
     logx, logy : bool
         Whether or not to log the x- or y-axis, respectively.
     kwargs : kwargs
@@ -162,9 +166,37 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
         xmax = dist_max
     else:
         raise ValueError('xaxis must be \'mean\' or \'dist\'')
-    ymin = max(np.percentile(cloud_y, 0.1), 1e-7) if logy \
-        else min(np.percentile(cloud_y, 0.1), 0)
-    ymax = np.percentile(cloud_y, 99.9)
+
+    # prepare and apply filter indexes
+    cloud_idx = np.isfinite(cloud_x) & np.isfinite(cloud_y) & \
+        ((cloud_y > 0) if logy else True) & \
+        ((cloud_x > 0) if logx else True) & \
+        (cloud_x >= xmin) & (cloud_x <= xmax)
+    cloud_x = cloud_x[cloud_idx]
+    cloud_y = cloud_y[cloud_idx]
+    try:
+        bin_idx = np.isfinite(bin_x) & np.isfinite(bin_y) & \
+            ((bin_y > 0) if logy else True) & \
+            ((bin_x > 0) if logx else True) & \
+            (bin_x >= xmin) & (bin_x <= xmax)
+        bin_x = bin_x[bin_idx]
+        bin_y = bin_y[bin_idx]
+    except TypeError:
+        pass
+    fit_idx = np.isfinite(fit_x) & np.isfinite(fit_y) & \
+        ((fit_y > 0) if logy else True) & \
+        ((fit_x > 0) if logx else True) & \
+        (fit_x >= xmin) & (fit_x <= xmax)
+    fit_x = fit_x[fit_idx]
+    fit_y = fit_y[fit_idx]
+
+    if hexbin:
+        ymin = max(np.percentile(cloud_y, 0.1), 1e-7) if logy \
+            else min(np.percentile(cloud_y, 0.1), 0)
+        ymax = np.percentile(cloud_y, 99.9)
+    else:
+        ymin = None
+        ymax = None
 
     # override the default plot limits above if xlim/ylim were passed
     if xlim is not None:
@@ -172,38 +204,26 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
     if ylim is not None:
         ymin, ymax = ylim
 
-    # prepare filter indexes
-    cloud_idx = np.isfinite(cloud_x) & np.isfinite(cloud_y) & \
-        ((cloud_y > 0) if logy else True) & \
-        ((cloud_x > 0) if logx else True) & \
-        ((pixel_dist <= dist_max) if xaxis == 'dist' else True)
-    try:
-        bin_idx = np.isfinite(bin_x) & np.isfinite(bin_y) & \
-            ((bin_y > 0) if logy else True) & ((bin_x > 0) if logx else True)
-    except TypeError:
-        bin_idx = None
-    fit_idx = np.isfinite(fit_x) & np.isfinite(fit_y) & \
-        ((fit_y > 0) if logy else True) & ((fit_x > 0) if logx else True)
-
     # hexbin per-pixel values
-    scatter(cloud_x[cloud_idx], cloud_y[cloud_idx], logx=logx, logy=logy,
-            hexbin=True, xlim=[xmin, xmax], ylim=[ymin, ymax])
+    if hexbin:
+        scatter(cloud_x, cloud_y, logx=logx, logy=logy, hexbin=True,
+                xlim=[xmin, xmax], ylim=[ymin, ymax])
 
     # scatter per-bin estimates
     if bin_x is not None and bin_y is not None:
-        plt.scatter(bin_x[bin_idx], bin_y[bin_idx],
-                    label='%s per bin' % fit_label, color='C1', s=scatter_size)
+        plt.scatter(bin_x, bin_y, label='%s per bin' % fit_label, color='C1',
+                    s=scatter_size)
 
     # plot or scatter fitted estimates
     if fit_x is not None and fit_y is not None:
-        sort_idx = np.argsort(fit_x[fit_idx]) if not fit_align_dist \
-            else np.arange(fit_idx.sum())
+        sort_idx = np.argsort(fit_x) if not fit_align_dist \
+            else np.arange(fit_x.shape[0])
         if scatter_fit > 0:
-            plt.scatter(fit_x[fit_idx][sort_idx][::fit_idx.sum()/scatter_fit],
-                        fit_y[fit_idx][sort_idx][::fit_idx.sum()/scatter_fit],
+            plt.scatter(fit_x[sort_idx][::fit_x.shape[0]/scatter_fit],
+                        fit_y[sort_idx][::fit_x.shape[0]/scatter_fit],
                         label=fit_label, color='C4', s=scatter_size)
         elif scatter_fit == -1:
-            plt.plot(fit_x[fit_idx][sort_idx], fit_y[fit_idx][sort_idx],
+            plt.plot(fit_x[sort_idx], fit_y[sort_idx],
                      label='smoothed %s' % fit_label, linewidth=3, color='C4')
 
     # add poisson line
@@ -218,10 +238,20 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
                        linewidth=3, color='C3')
         else:
             raise ValueError('yaxis must be \'disp\' or \'var\'')
+    else:
+        if yaxis == 'disp' and not logy:
+            plt.hlines(0, xmin, xmax, label='Poisson', linestyle='--',
+                       linewidth=3, color='C3')
 
     # cleanup
-    plt.ylim((ymin, ymax))
-    plt.xlim((xmin, xmax))
+    if hexbin:
+        plt.ylim((ymin, ymax))
+        plt.xlim((xmin, xmax))
+    if not hexbin:
+        if logx:
+            plt.xscale('log')
+        if logy:
+            plt.yscale('log')
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     if legend:

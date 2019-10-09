@@ -201,24 +201,37 @@ The `HiC3DeFDR` object can be used to draw visualizations of the analysis.
 
 ### Dispersion fitting
 
-    >>> _ = h.plot_dispersion_fit('chr18', 'ES', outfile='var.png')
+    >>> _ = h.plot_dispersion_fit('ES', outfile='ddr.png')
 
-![](images/var.png)
+![](images/ddr.png)
 
-You can also plot the y-axis in units of dispersion by plotting `yaxis='disp'`:
+You can also plot the y-axis in units of variance by plotting `yaxis='var'`:
 
-    >>> _ = h.plot_dispersion_fit('chr18', 'ES', yaxis='disp', outfile='disp.png')
+    >>> _ = h.plot_dispersion_fit('ES', yaxis='var', outfile='var.png')
 
-![](images/disp.png)
+![](images/dvr.png)
+
+It's possible to use the the one-dimensional distance dependence curve to 
+to convert distances to means and plot these figures with mean on the x-axis. To
+do this, pass `xaxis='mean'`.
+
+    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr.png')
+
+![](images/mvr.png)
+
+At low mean and high distance, the distance dependence curve flattens out and 
+the data become more noisy, making this conversion unreliable.
+
+It's also possible to show the dispersion fitted at just one distance scale, 
+overlaying the sample mean and sample variance across replicates for each pixel
+as a blue hexbin plot:
+
+    >>> _ = h.plot_dispersion_fit('ES', distance=25, hexbin=True, xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr_25.png')
+
+![](images/mvr_25.png)
 
 If dispersion was fitted against distance rather than mean, pass `xaxis='dist'`
 to plot dispersion/variance versus distance.
-
-You can also draw the dispersion point cloud against the `xaxis` (either
-`'dist'` or `'mean'`) you didn't use for fitting, but you should also pass
-`scatter_fit=0` to skip trying to plot the smoothed curve in a space it was
-not fitted in or `scatter_fit=100` to plot the estimated dispersions/variances
-for 100 selected points as a scatterplot.
 
 ### P-value distribution
 
@@ -238,7 +251,7 @@ loops, pass `idx='loop'`.
 
 ### MA plot
 
-    >>> _ = h.plot_ma('chr18', legend=True, outfile='ma.png')
+    >>> _ = h.plot_ma(legend=True, outfile='ma.png')
 
 ![](images/ma.png)
 
