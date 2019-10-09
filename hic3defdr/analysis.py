@@ -179,7 +179,7 @@ class HiC3DeFDR(object):
         # tackle simple cases first
         if chrom is None:
             return np.load('%s/%s.npy' % (self.outdir, name))
-        if chrom is not 'all':
+        if chrom != 'all':
             return np.load('%s/%s_%s.npy' % (self.outdir, name, chrom))
 
         # idx is genome-wide, this tracks where we are in idx so that we can
