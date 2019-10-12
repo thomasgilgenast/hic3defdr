@@ -602,8 +602,8 @@ class HiC3DeFDR(object):
                         c, '%s/%s_%g_%i_%s.json' %
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
-    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, scramble=False,
-                 outdir='sim'):
+    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, scramble=True,
+                 loop_pattern=None, outdir='sim'):
         """
         Simulates raw contact matrices based on previously fitted scaled means
         and dispersions in a specific condition.
@@ -630,15 +630,25 @@ class HiC3DeFDR(object):
         scramble : bool
             Pass True to scramble the bias vectors and size factors when
             assigning them to simulated replicates.
+        loop_pattern : str, optional
+            File path pattern to sparse JSON formatted cluster files
+            representing loop cluster locations for the simulation. Should
+            contain at least one '<chrom>' which will be replaced with the
+            chromosome name when loading data for specific chromosomes. Pass
+            None to use ``self.loop_patterns[cond]``.
         outdir : str
             Path to a directory to store the simulated data to.
         """
         if chrom is None:
             for chrom in self.chroms:
                 self.simulate(cond, chrom=chrom, beta=beta, p_diff=p_diff,
-                              outdir=outdir)
+                              loop_pattern=loop_pattern, outdir=outdir)
             return
         eprint('simulating data for chrom %s' % chrom)
+        # resolve loop_pattern
+        if loop_pattern is None:
+            loop_pattern = self.loop_patterns[cond]
+
         # load everything
         bias = self.load_bias(chrom)
         size_factors = self.load_data('size_factors', chrom)
@@ -646,8 +656,7 @@ class HiC3DeFDR(object):
         col = self.load_data('col', chrom)
         scaled = self.load_data('scaled', chrom)[:, self.design[cond]]
         disp_fn = self.load_disp_fn(cond)
-        clusters = load_clusters(
-            self.loop_patterns[cond].replace('<chrom>', chrom))
+        clusters = load_clusters(loop_pattern.replace('<chrom>', chrom))
 
         # compute pixel-wise mean of normalized data
         mean = np.mean(scaled, axis=1)
@@ -697,8 +706,7 @@ class HiC3DeFDR(object):
         for rep, csr in zip(repnames, sim_iter):
             sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)
 
-    def evaluate(self, cluster_pattern, label_pattern, min_dist=None,
-                 max_dist=None, outfile='eval.npz'):
+    def evaluate(self, cluster_pattern, label_pattern, outfile='eval.npz'):
         """
         Evaluates the results of this analysis, comparing it to true labels.
 
@@ -717,10 +725,6 @@ class HiC3DeFDR(object):
             should be loadable with ``np.loadtxt(..., dtype='|S7')`` to yield a
             vector of true labels parallel to the clusters pointed to by
             ``cluster_pattern``.
-        min_dist, max_dist : int
-            Loops with interaction distance shorter or longer than this many
-            bin units will be excluded from the evaluation. Pass None to
-            evaluate all loops.
         outfile : str
             Name of a file to save the evaluation results to inside this
             object's ``outdir``.
@@ -730,9 +734,6 @@ class HiC3DeFDR(object):
             cluster_pattern = self.loop_patterns[cluster_pattern]
 
         # make y_true one chrom at a time
-        pvalue_list = []
-        total_loops = 0
-        loops_retained = 0
         y_true = []
         for chrom in self.chroms:
             disp_idx = self.load_data('disp_idx', chrom)
@@ -742,46 +743,12 @@ class HiC3DeFDR(object):
             clusters = load_clusters(cluster_pattern.replace('<chrom>', chrom))
             labels = np.loadtxt(label_pattern.replace('<chrom>', chrom),
                                 dtype='|S7')
-
-            # the following block is unfortunately complicated but we needed to
-            # add this functionality for the rebuttal
-            if min_dist is not None or max_dist is not None:
-                # create a dist_idx which indicates which clusters fall in the
-                # distance range specified by min_dist and max_dist
-                dist_idx = np.ones_like(labels, dtype=bool)
-                dist = np.array([np.mean([j-i for i, j in c])
-                                 for c in clusters])
-                if min_dist is not None:
-                    dist_idx[dist < min_dist] = False
-                if max_dist is not None:
-                    dist_idx[dist > max_dist] = False
-
-                # keep a running tally of retained vs total loops
-                total_loops += len(dist_idx)
-                loops_retained += np.sum(dist_idx)
-
-                # use dist_idx to filter clusters and labels
-                clusters = [c for i, c in enumerate(clusters) if dist_idx[i]]
-                labels = labels[dist_idx]
-
-                # load the pvalues from this chromosome, keep only those that
-                # fall under retained clusters, and append to a list
-                chrom_pvalues = self.load_data('pvalues', chrom)[loop_idx]
-                chrom_pvalues = np.array(
-                    [p for i, j, p in zip(row, col, chrom_pvalues)
-                     if any(((i, j) in set(c) for c in clusters))])
-                pvalue_list.append(chrom_pvalues)
             y_true.append(make_y_true(row, col, clusters, labels))
         y_true = np.concatenate(y_true)
 
         # load qvalues
-        if min_dist is None and max_dist is None:
-            qvalues = np.concatenate([self.load_data('qvalues', chrom)
-                                      for chrom in self.chroms])
-        else:
-            eprint('%s/%s loops retained' % (loops_retained, total_loops))
-            eprint('redoing BH correction')
-            qvalues = adjust_pvalues(np.concatenate(pvalue_list))
+        qvalues = np.concatenate([self.load_data('qvalues', chrom)
+                                  for chrom in self.chroms])
 
         # evaluate and save to disk
         fdr, fpr, tpr, thresh = evaluate(y_true, qvalues)
