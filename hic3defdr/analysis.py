@@ -9,10 +9,11 @@ from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
 
 import hic3defdr.scaling as scaling
+import hic3defdr.dispersion as dispersion
 from hic3defdr.logging import eprint
 from hic3defdr.matrices import sparse_union
 from hic3defdr.clusters import load_clusters, save_clusters
-from hic3defdr.dispersion import estimate_dispersion
+from hic3defdr.lowess import lowess_fit
 from hic3defdr.lrt import lrt
 from hic3defdr.thresholding import threshold_and_cluster, size_filter
 from hic3defdr.classification import classify
@@ -73,7 +74,7 @@ class HiC3DeFDR(object):
     """
 
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
-                 dist_thresh_min=4, dist_thresh_max=1000, bias_thresh=0.1,
+                 dist_thresh_min=4, dist_thresh_max=500, bias_thresh=0.1,
                  mean_thresh=5.0, loop_patterns=None):
         """
         Base constructor. See ``help(HiC3DeFDR)`` for details.
@@ -148,25 +149,65 @@ class HiC3DeFDR(object):
              (np.any(bias > 1. / self.bias_thresh, axis=1)), :] = 0
         return bias
 
-    def load_data(self, name, chrom):
+    def load_data(self, name, chrom=None, idx=None):
         """
-        Loads arbitrary data for one chromosome.
+        Loads arbitrary data for one chromosome or all chromosomes.
 
         Parameters
         ----------
         name : str
             The name of the data to load.
-        chrom : str
-            The name of the chromosome to load data for.
+        chrom : str, optional
+            The name of the chromosome to load data for. Pass None if this data
+            is not organized by chromosome. Pass 'all' to load data for all
+            chromosomes.
+        idx : np.ndarray, optional
+            Pass a boolean array to load only a subset of the data. Useful in
+            combination with ``chrom='all'`` to reduce memory usage. Ignored if
+            ``chrom`` is not 'all'.
 
         Returns
         -------
-        np.ndarray
-            The loaded data.
+        data or (concatenated_data, offsets) : np.ndarray
+            The loaded data for one chromosome, or a tuple of the concatenated
+            data and an array of offsets per chromosome. ``offsets`` satisfies
+            the following properties: ``offsets[0] == 0``,
+            ``offsets[-1] == concatenated_data.shape[0]``, and
+            ``concatenated_data[offsets[i]:offsets[i+1], :]`` contains the data
+            for the ``i``th chromosome.
         """
-        return np.load('%s/%s_%s.npy' % (self.outdir, name, chrom))
+        # tackle simple cases first
+        if chrom is None:
+            return np.load('%s/%s.npy' % (self.outdir, name))
+        if chrom != 'all':
+            return np.load('%s/%s_%s.npy' % (self.outdir, name, chrom))
 
-    def save_data(self, data, name, chrom):
+        # idx is genome-wide, this tracks where we are in idx so that we can
+        # find a subset of idx that aligns with the current chrom
+        idx_offset = 0
+
+        # list of data arrays per chromosome
+        all_data = []
+
+        # running total of the sizes of the elements of all data
+        offset = 0
+
+        # saves value of offset after each chrom
+        offsets = [0]
+
+        # loop over chroms
+        for chrom in self.chroms:
+            data = np.load('%s/%s_%s.npy' % (self.outdir, name, chrom))
+            if idx is not None:
+                full_data_size = data.shape[0]
+                data = data[idx[idx_offset:idx_offset+full_data_size]]
+                idx_offset += full_data_size
+            offset += data.shape[0]
+            offsets.append(offset)
+            all_data.append(data)
+        return np.concatenate(all_data), np.array(offsets)
+
+    def save_data(self, data, name, chrom=None):
         """
         Saves arbitrary data for one chromosome to disk.
 
@@ -176,20 +217,27 @@ class HiC3DeFDR(object):
             The data to save.
         name : str
             The name of the data to save.
-        chrom : str
-            The name of the chromosome to save data for.
+        chrom : str or np.ndarray, optional
+            The name of the chromosome to save data for, or None if this data is
+            not organized by chromosome. Pass an np.ndarray of offsets to save
+            data for all chromosomes.
         """
-        np.save('%s/%s_%s.npy' % (self.outdir, name, chrom), data)
+        if chrom is None:
+            np.save('%s/%s.npy' % (self.outdir, name), data)
+        elif isinstance(chrom, np.ndarray):
+            for i, c in enumerate(self.chroms):
+                self.save_data(data[chrom[i]:chrom[i + 1]], name, c)
+        else:
+            np.save('%s/%s_%s.npy' % (self.outdir, name, chrom), data)
 
-    def load_disp_fn(self, cond, chrom):
+    def load_disp_fn(self, cond):
         """
-        Loads the fitted dispersion function for a specific condition and
-        chromosome from disk.
+        Loads the fitted dispersion function for a specific condition from disk.
 
         Parameters
         ----------
-        chrom, cond : str
-            The chromosome and condition to load the dispersion function for.
+        cond : str
+            The condition to load the dispersion function for.
 
         Returns
         -------
@@ -197,23 +245,23 @@ class HiC3DeFDR(object):
             Vectorized. Takes in the value of the covariate the dispersion was
             fitted against and returns the appropriate dispersion.
         """
-        picklefile = '%s/disp_fn_%s_%s.pickle' % (self.outdir, cond, chrom)
+        picklefile = '%s/disp_fn_%s.pickle' % (self.outdir, cond)
         with open(picklefile, 'rb') as handle:
             return pickle.load(handle)
 
-    def save_disp_fn(self, cond, chrom, disp_fn):
+    def save_disp_fn(self, cond, disp_fn):
         """
         Saves the fitted dispersion function for a specific condition and
         chromosome to disk.
 
         Parameters
         ----------
-        chrom, cond : str
-            The chromosome and condition to save the dispersion function for.
+        cond : str
+            The condition to save the dispersion function for.
         disp_fn : function
             The dispersion function to save.
         """
-        picklefile = '%s/disp_fn_%s_%s.pickle' % (self.outdir, cond, chrom)
+        picklefile = '%s/disp_fn_%s.pickle' % (self.outdir, cond)
         with open(picklefile, 'wb') as handle:
             return pickle.dump(disp_fn, handle, -1)
 
@@ -277,83 +325,63 @@ class HiC3DeFDR(object):
             size_factors = scaling.__dict__[norm](balanced)
         scaled = balanced / size_factors
 
+        eprint('  computing disp_idx')
+        dist = col - row
+        mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
+        disp_idx = np.all(mean > self.mean_thresh, axis=1) & \
+            (dist >= self.dist_thresh_min)
+
         eprint('  saving data to disk')
         self.save_data(row, 'row', chrom)
         self.save_data(col, 'col', chrom)
         self.save_data(raw, 'raw', chrom)
         self.save_data(size_factors, 'size_factors', chrom)
         self.save_data(scaled, 'scaled', chrom)
+        self.save_data(disp_idx, 'disp_idx', chrom)
 
-    def estimate_disp(self, chrom=None, estimator='cml', trend='mean',
-                      n_bins=100):
+    def estimate_disp(self, estimator='cml'):
         """
         Estimates dispersion parameters.
 
         Parameters
         ----------
-        chrom : str
-            The name of the chromosome to prepare data for. Pass None to run for
-            all chromosomes in series.
         estimator : 'cml', 'qcml', 'mme', or a function
             Pass 'cml', 'qcml', 'mme' to use conditional maximum likelihood
             (CML), quantile-adjusted CML (qCML), or method of moments estimation
             (MME) to estimate the dispersion within each bin. Pass a function
             that takes in a (pixels, replicates) shaped array of data and
             returns a dispersion value to use that instead.
-        trend : 'mean' or 'dist'
-            Whether to estimate the dispersion trend with respect to mean or
-            interaction distance.
-        n_bins : int
-            Number of bins to use during dispersion estimation.
         """
-        if chrom is None:
-            for chrom in self.chroms:
-                self.estimate_disp(chrom=chrom, estimator=estimator,
-                                   trend=trend, n_bins=n_bins)
-            return
-        eprint('estimating dispersion for chrom %s' % chrom)
+        eprint('estimating dispersion')
+        estimator = dispersion.__dict__[estimator] \
+            if estimator in dispersion.__dict__ else estimator
+
         eprint('  loading data')
-        row = self.load_data('row', chrom)
-        col = self.load_data('col', chrom)
-        scaled = self.load_data('scaled', chrom)
-
-        eprint('  computing pixel-wise mean per condition')
+        disp_idx, _ = self.load_data('disp_idx', 'all')
+        row, offsets = self.load_data('row', 'all', idx=disp_idx)
+        col, _ = self.load_data('col', 'all', idx=disp_idx)
+        scaled, _ = self.load_data('scaled', 'all', idx=disp_idx)
         dist = col - row
-        mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
-        disp_idx = np.all(mean > self.mean_thresh, axis=1) & \
-            (dist >= self.dist_thresh_min)
 
-        # resolve cov
-        if trend == 'dist':
-            cov = np.broadcast_to(dist[disp_idx, None],
-                                  (disp_idx.sum(), self.design.shape[1]))
-        elif trend == 'mean':
-            cov = mean[disp_idx, :]
-        else:
-            raise ValueError('trend must be \'mean\' or \'dist\'')
-
+        disp_per_dist = np.zeros((self.dist_thresh_max+1, self.design.shape[1]))
         disp = np.zeros((disp_idx.sum(), self.design.shape[1]))
-        cov_per_bin = np.zeros((n_bins, self.design.shape[1]))
-        disp_per_bin = np.zeros((n_bins, self.design.shape[1]))
         for c, cond in enumerate(self.design.columns):
             eprint('  estimating dispersion for condition %s' % cond)
-            disp[:, c], cov_per_bin[:, c], disp_per_bin[:, c], disp_fn = \
-                estimate_dispersion(
-                    scaled[disp_idx, :][:, self.design[cond]],
-                    cov=cov[:, c],
-                    estimator=estimator,
-                    n_bins=n_bins,
-                    logx=True if trend == 'mean' else False
-            )
-            self.save_disp_fn(cond, chrom, disp_fn)
+            for d in tqdm(range(self.dist_thresh_max+1)):
+                data = scaled[dist == d, :][:, self.design[cond]]
+                disp_per_dist[d, c] = np.nan if not data.size \
+                    else estimator(data)
+            idx = np.isfinite(disp_per_dist[:, c])
+            disp_fn = lowess_fit(np.arange(self.dist_thresh_max+1)[idx],
+                                 disp_per_dist[:, c][idx], logx=True, logy=True)
+            disp[:, c] = disp_fn(dist)
+            self.save_disp_fn(cond, disp_fn)
 
         eprint('  saving estimated dispersions to disk')
-        self.save_data(disp_idx, 'disp_idx', chrom)
-        self.save_data(disp, 'disp', chrom)
-        self.save_data(cov_per_bin, 'cov_per_bin', chrom)
-        self.save_data(disp_per_bin, 'disp_per_bin', chrom)
+        self.save_data(disp, 'disp', offsets)
+        self.save_data(disp_per_dist, 'disp_per_dist')
 
-    def lrt(self, chrom=None):
+    def lrt(self, chrom=None, refit_mu=True):
         """
         Runs the likelihood ratio test to test for differential interactions.
 
@@ -362,6 +390,11 @@ class HiC3DeFDR(object):
         chrom : str
             The name of the chromosome to run the LRT for. Pass None to run for
             all chromosomes in series.
+        refit_mu : bool
+            Pass True to refit the mean parameters in the NB models being
+            compared in the LRT. Pass False to use the means across replicates
+            directly, which is simpler and slightly faster but technically
+            violates the assumptions of the LRT.
         """
         if chrom is None:
             for chrom in self.chroms:
@@ -385,7 +418,7 @@ class HiC3DeFDR(object):
             f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
         pvalues, llr, mu_hat_null, mu_hat_alt = lrt(
             raw[disp_idx, :], f, np.dot(disp, self.design.values.T),
-            self.design.values)
+            self.design.values, refit_mu=refit_mu)
 
         if self.loop_patterns:
             eprint('  making loop_idx')
@@ -429,7 +462,7 @@ class HiC3DeFDR(object):
             offset += len(pvalues[i])
 
     def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=100,
-                       estimator='cml', trend='mean', n_bins_disp=100):
+                       estimator='cml', refit_mu=True):
         """
         Shortcut method to run the analysis to q-values.
 
@@ -455,15 +488,15 @@ class HiC3DeFDR(object):
             estimate the dispersion within each bin. Pass a function that takes
             in a (pixels, replicates) shaped array of data and returns a
             dispersion value to use that instead.
-        trend : 'mean' or 'dist'
-            Whether to estimate the dispersion trend with respect to mean or
-            interaction distance.
-        n_bins_disp : int
-            Number of bins to use during dispersion estimation.
+        refit_mu : bool
+            Pass True to refit the mean parameters in the NB models being
+            compared in the LRT. Pass False to use the means across replicates
+            directly, which is simpler and slightly faster but technically
+            violates the assumptions of the LRT.
         """
         self.prepare_data(norm=norm, n_bins=n_bins_norm)
-        self.estimate_disp(estimator=estimator, trend=trend, n_bins=n_bins_disp)
-        self.lrt()
+        self.estimate_disp(estimator=estimator)
+        self.lrt(refit_mu=refit_mu)
         self.bh()
 
     def threshold(self, chrom=None, fdr=0.05, cluster_size=3):
@@ -569,8 +602,8 @@ class HiC3DeFDR(object):
                         c, '%s/%s_%g_%i_%s.json' %
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
-    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, trend='mean',
-                 outdir='sim'):
+    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, scramble=True,
+                 loop_pattern=None, outdir='sim'):
         """
         Simulates raw contact matrices based on previously fitted scaled means
         and dispersions in a specific condition.
@@ -594,28 +627,36 @@ class HiC3DeFDR(object):
         p_diff : float
             This fraction of loops will be perturbed across the simulated
             conditions. The remainder will be constitutive.
-        trend : 'mean' or 'dist'
-            The covariate against which dispersion was fitted when calling
-            ``estimate_disp()``. Necessary for correct interpretation of the
-            fitted dispersion function as a function of mean or of distance.
+        scramble : bool
+            Pass True to scramble the bias vectors and size factors when
+            assigning them to simulated replicates.
+        loop_pattern : str, optional
+            File path pattern to sparse JSON formatted cluster files
+            representing loop cluster locations for the simulation. Should
+            contain at least one '<chrom>' which will be replaced with the
+            chromosome name when loading data for specific chromosomes. Pass
+            None to use ``self.loop_patterns[cond]``.
         outdir : str
             Path to a directory to store the simulated data to.
         """
         if chrom is None:
             for chrom in self.chroms:
                 self.simulate(cond, chrom=chrom, beta=beta, p_diff=p_diff,
-                              outdir=outdir)
+                              loop_pattern=loop_pattern, outdir=outdir)
             return
         eprint('simulating data for chrom %s' % chrom)
+        # resolve loop_pattern
+        if loop_pattern is None:
+            loop_pattern = self.loop_patterns[cond]
+
         # load everything
         bias = self.load_bias(chrom)
         size_factors = self.load_data('size_factors', chrom)
         row = self.load_data('row', chrom)
         col = self.load_data('col', chrom)
         scaled = self.load_data('scaled', chrom)[:, self.design[cond]]
-        disp_fn = self.load_disp_fn(cond, chrom)
-        clusters = load_clusters(
-            self.loop_patterns[cond].replace('<chrom>', chrom))
+        disp_fn = self.load_disp_fn(cond)
+        clusters = load_clusters(loop_pattern.replace('<chrom>', chrom))
 
         # compute pixel-wise mean of normalized data
         mean = np.mean(scaled, axis=1)
@@ -648,21 +689,24 @@ class HiC3DeFDR(object):
             size_factors = new_size_factors
 
         # scramble bias and size_factors
-        bias = bias[:, (np.arange(n_sim)+1) % n_sim]
-        if len(size_factors.shape) == 1:
-            size_factors = size_factors[(np.arange(n_sim)+3) % n_sim]
-        else:
-            size_factors = size_factors[:, (np.arange(n_sim)+3) % n_sim]
+        if scramble:
+            bias = np.ones_like(bias)
+            size_factors = np.ones_like(size_factors)
+            bias = bias[:, (np.arange(n_sim)+1) % n_sim]
+            if len(size_factors.shape) == 1:
+                size_factors = size_factors[(np.arange(n_sim)+3) % n_sim]
+            else:
+                size_factors = size_factors[:, (np.arange(n_sim)+3) % n_sim]
 
         # simulate and save
         classes, sim_iter = simulate(
             row, col, mean, disp_fn, bias, size_factors, clusters, beta=beta,
-            p_diff=p_diff, trend=trend)
+            p_diff=p_diff, trend='dist')
         np.savetxt('%s/labels_%s.txt' % (outdir, chrom), classes, fmt='%s')
         for rep, csr in zip(repnames, sim_iter):
             sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)
 
-    def evaluate(self, cluster_pattern, label_pattern):
+    def evaluate(self, cluster_pattern, label_pattern, outfile='eval.npz'):
         """
         Evaluates the results of this analysis, comparing it to true labels.
 
@@ -681,6 +725,9 @@ class HiC3DeFDR(object):
             should be loadable with ``np.loadtxt(..., dtype='|S7')`` to yield a
             vector of true labels parallel to the clusters pointed to by
             ``cluster_pattern``.
+        outfile : str
+            Name of a file to save the evaluation results to inside this
+            object's ``outdir``.
         """
         # resolve case where a condition name was passed to cluster_pattern
         if cluster_pattern in self.loop_patterns.keys():
@@ -707,7 +754,7 @@ class HiC3DeFDR(object):
         fdr, fpr, tpr, thresh = evaluate(y_true, qvalues)
 
         # save to disk
-        np.savez('%s/eval.npz' % self.outdir,
+        np.savez('%s/%s' % (self.outdir, outfile),
                  **{'fdr': fdr, 'fpr': fpr, 'tpr': tpr, 'thresh': thresh})
 
     def plot_dd_curves(self, chrom, log=True, **kwargs):
@@ -744,17 +791,17 @@ class HiC3DeFDR(object):
         return plot_dd_curves(row, col, balanced, scaled, self.design, log=log,
                               **kwargs)
 
-    def plot_dispersion_fit(self, chrom, cond, xaxis='mean', yaxis='var',
+    def plot_dispersion_fit(self, cond, xaxis='dist', yaxis='disp',
                             dist_max=200, scatter_fit=-1, scatter_size=36,
-                            logx=True, logy=True, **kwargs):
+                            distance=None, hexbin=False, logx=False, logy=False,
+                            **kwargs):
         """
-        Plots a hexbin plot of pixel-wise mean vs either dispersion or variance,
-        overlaying the Poisson line and the mean-variance relationship
-        represented by the fitted dispersions.
+        Plots a hexbin plot of pixel-wise distance vs either dispersion or
+        variance, overlaying the estimated and fitted dispersions.
 
         Parameters
         ----------
-        chrom, cond : str
+        cond : str
             The name of the chromosome and condition, respectively, to plot the
             fit for.
         xaxis : 'mean' or 'dist'
@@ -771,6 +818,12 @@ class HiC3DeFDR(object):
             Pass 0 to omit plotting the dispersion estimates altogether.
         scatter_size : int
             The marker size when plotting scatterplots.
+        distance : int, optional
+            Pick a specific distance in bin units to plot only interactions at
+            that distance.
+        hexbin : bool
+            Pass False to skip plotting the hexbin plot, leaving only the
+            estimated variances or dispersions.
         logx, logy : bool
             Whether or not to log the x- or y-axis, respectively.
         kwargs : kwargs
@@ -785,31 +838,52 @@ class HiC3DeFDR(object):
         cond_idx = self.design.columns.tolist().index(cond)
 
         # load everything
-        disp_idx = self.load_data('disp_idx', chrom)
-        scaled = self.load_data('scaled', chrom)\
-            [disp_idx, :][:, self.design[cond]]
-        disp = self.load_data('disp', chrom)[:, cond_idx]
+        disp_idx, _ = self.load_data('disp_idx', 'all')
+        scaled = self.load_data(
+            'scaled', 'all', idx=disp_idx)[0][:, self.design[cond]]
+        disp = self.load_data('disp', 'all')[0][:, cond_idx]
         try:
-            cov_per_bin = self.load_data('cov_per_bin', chrom)[:, cond_idx]
-            disp_per_bin = self.load_data('disp_per_bin', chrom)[:, cond_idx]
+            disp_per_dist = self.load_data('disp_per_dist')[:, cond_idx]
+            idx = np.isfinite(disp_per_dist)
+            disp_per_bin = disp_per_dist[idx]
+            dist_per_bin = np.arange(self.dist_thresh_max + 1)[idx]
         except IOError:
-            cov_per_bin = None
             disp_per_bin = None
-        row = self.load_data('row', chrom)[disp_idx]
-        col = self.load_data('col', chrom)[disp_idx]
+            dist_per_bin = None
+        row, _ = self.load_data('row', 'all', idx=disp_idx)
+        col, _ = self.load_data('col', 'all', idx=disp_idx)
         dist = col - row
 
         # compute mean and sample variance
         mean = np.mean(scaled, axis=1)
         var = np.var(scaled, ddof=1, axis=1)
 
-        return plot_mvr(mean, var, disp=disp, cov_per_bin=cov_per_bin,
-                        disp_per_bin=disp_per_bin,
-                        dist=dist if xaxis == 'dist' else None,
-                        dist_max=dist_max, yaxis=yaxis,
-                        mean_thresh=self.mean_thresh,
-                        scatter_fit=scatter_fit, scatter_size=scatter_size,
-                        logx=logx, logy=logy, **kwargs)
+        # resolve distance
+        if distance is not None:
+            dist_idx = dist == distance
+            mean = mean[dist_idx]
+            var = var[dist_idx]
+            dist = None
+            disp = np.ones(dist_idx.sum()) * disp_per_dist[distance]
+            dist_per_bin = None
+            disp_per_bin = None
+            fit_align_dist = False
+        else:
+            fit_align_dist = xaxis == 'mean' or yaxis == 'var'
+
+        return plot_mvr(
+            pixel_mean=mean,
+            pixel_var=var,
+            pixel_dist=dist,
+            pixel_disp_fit=disp,
+            dist_per_bin=dist_per_bin,
+            disp_per_bin=disp_per_bin,
+            fit_align_dist=fit_align_dist,
+            xaxis=xaxis, yaxis=yaxis,
+            dist_max=dist_max, mean_min=self.mean_thresh,
+            scatter_fit=scatter_fit, scatter_size=scatter_size, hexbin=hexbin,
+            logx=logx, logy=logy, **kwargs
+        )
 
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """
@@ -832,19 +906,15 @@ class HiC3DeFDR(object):
         """
         # load everything
         if idx == 'loop':
-            pvalues = [
-                np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))
-                [np.load('%s/loop_idx_%s.npy' % (self.outdir, chrom))]
-                for chrom in self.chroms
-            ]
+            loop_idx, _ = self.load_data('loop_idx', 'all')
+            pvalues, _ = self.load_data('pvalues', 'all', idx=loop_idx)
         elif idx == 'disp':
-            pvalues = [np.load('%s/pvalues_%s.npy' % (self.outdir, chrom))
-                       for chrom in self.chroms]
+            pvalues, _ = self.load_data('pvalues', 'all')
         else:
             raise ValueError('idx must be loop or disp')
 
         # plot
-        return plot_pvalue_histogram(np.concatenate(pvalues), **kwargs)
+        return plot_pvalue_histogram(pvalues, **kwargs)
 
     def plot_qvalue_distribution(self, **kwargs):
         """
@@ -861,21 +931,18 @@ class HiC3DeFDR(object):
             The axis plotted on.
         """
         # load everything
-        qvalues = [self.load_data('qvalues', chrom) for chrom in self.chroms]
+        qvalues, _ = self.load_data('qvalues', 'all')
 
         # plot
-        return plot_pvalue_histogram(
-            np.concatenate(qvalues), xlabel='qvalue', **kwargs)
+        return plot_pvalue_histogram(qvalues, xlabel='qvalue', **kwargs)
 
-    def plot_ma(self, chrom, fdr=0.05, conds=None, include_non_loops=True, s=1,
+    def plot_ma(self, fdr=0.05, conds=None, include_non_loops=True, s=1,
                 **kwargs):
         """
         Plots an MA plot for a given chromosome.
 
         Parameters
         ----------
-        chrom : str
-            The chromosome to plot the MA plot for.
         fdr : float
             The threshold to use for labeling significantly differential loop
             pixels.
@@ -900,10 +967,10 @@ class HiC3DeFDR(object):
         cond_idx = [self.design.columns.tolist().index(cond) for cond in conds]
 
         # load data
-        disp_idx = self.load_data('disp_idx', chrom)
-        loop_idx = self.load_data('loop_idx', chrom)
-        scaled = self.load_data('scaled', chrom)[disp_idx, :]
-        qvalues = self.load_data('qvalues', chrom)
+        disp_idx, _ = self.load_data('disp_idx', 'all')
+        loop_idx, _ = self.load_data('loop_idx', 'all')
+        scaled, _ = self.load_data('scaled', 'all', idx=disp_idx)
+        qvalues, _ = self.load_data('qvalues', 'all')
 
         # compute mean
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values

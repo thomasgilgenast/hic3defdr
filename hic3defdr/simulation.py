@@ -7,7 +7,6 @@ from lib5c.util.distributions import freeze_distribution
 
 from hic3defdr.scaled_nb import mvr
 from hic3defdr.logging import eprint
-from hic3defdr.progress import tqdm_maybe as tqdm
 
 
 def perturb_cluster(matrix, cluster, effect):
@@ -120,7 +119,7 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
         (mean, (row, col)), shape=(bias.shape[0], bias.shape[0])).tolil()
     del row
     del col
-    for i, cluster in tqdm(enumerate(clusters)):
+    for i, cluster in enumerate(clusters):
         if classes[i] == 'up A':
             perturb_cluster(mean_a_lil, cluster, beta)
         elif classes[i] == 'down A':
@@ -158,9 +157,10 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
             eprint('  biasing and simulating rep %i/%i' % (j+1, n_sim))
             # bias mean
             if len(size_factors.shape) == 1:
-                bm = m*bias[new_row, j]*bias[new_col, j]*size_factors[j] + 0.1
+                bm = m * bias[new_row, j] * bias[new_col, j] * \
+                    size_factors[j] + 0.1
             else:
-                bm = m*bias[new_row, j] * bias[new_col, j] * \
+                bm = m * bias[new_row, j] * bias[new_col, j] * \
                     size_factors[new_col-new_row, j] + 0.1
             assert np.all(bm > 0)
 
