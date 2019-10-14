@@ -25,6 +25,7 @@ from hic3defdr.plotting.dispersion import plot_mvr
 from hic3defdr.plotting.ma import plot_ma
 from hic3defdr.plotting.grid import plot_grid
 from hic3defdr.progress import tqdm_maybe as tqdm
+from hic3defdr.parallelization import parallel
 
 
 class HiC3DeFDR(object):
@@ -265,7 +266,8 @@ class HiC3DeFDR(object):
         with open(picklefile, 'wb') as handle:
             return pickle.dump(disp_fn, handle, -1)
 
-    def prepare_data(self, chrom=None, norm='conditional_mor', n_bins=100):
+    def prepare_data(self, chrom=None, norm='conditional_mor', n_bins=100,
+                     n_threads=0, verbose=True):
         """
         Prepares raw and normalized data for analysis.
 
@@ -288,16 +290,32 @@ class HiC3DeFDR(object):
             Number of distance bins to use during scaling normalization if
             ``norm`` is one of the conditional options. Pass 0 or None to match
             pixels by exact distance.
+        n_threads : int
+            The number of threads (technically GIL-avoiding child processes) to
+            use to process multiple chromosomes in parallel. Pass -1 to use as
+            many threads as there are CPUs. Pass 0 to process the chromosomes
+            serially.
+        verbose : bool
+            Pass False to silence reporting of progress to stderr.
         """
         if chrom is None:
-            for chrom in self.chroms:
-                self.prepare_data(chrom=chrom, norm=norm, n_bins=n_bins)
+            if n_threads:
+                parallel(
+                    self.prepare_data,
+                    [{'chrom': c, 'norm': norm, 'n_bins': n_bins,
+                      'verbose': False}
+                     for c in self.chroms],
+                    n_threads=n_threads
+                )
+            else:
+                for chrom in self.chroms:
+                    self.prepare_data(chrom=chrom, norm=norm, n_bins=n_bins)
             return
         eprint('preparing data for chrom %s' % chrom)
-        eprint('  loading bias')
+        eprint('  loading bias', skip=not verbose)
         bias = self.load_bias(chrom)
 
-        eprint('  computing union pixel set')
+        eprint('  computing union pixel set', skip=not verbose)
         row, col = sparse_union(
             [pattern.replace('<chrom>', chrom)
              for pattern in self.raw_npz_patterns],
@@ -305,19 +323,19 @@ class HiC3DeFDR(object):
             bias=bias
         )
 
-        eprint('  loading raw data')
+        eprint('  loading raw data', skip=not verbose)
         raw = np.zeros((len(row), len(self.raw_npz_patterns)), dtype=int)
         for i, pattern in enumerate(self.raw_npz_patterns):
             raw[:, i] = sparse.load_npz(pattern.replace('<chrom>', chrom)) \
                 .tocsr()[row, col]
 
-        eprint('  loading balanced data')
+        eprint('  loading balanced data', skip=not verbose)
         balanced = np.zeros((len(row), len(self.raw_npz_patterns)), dtype=float)
         for r, pattern in enumerate(self.raw_npz_patterns):
             balanced[:, r] = sparse.load_npz(pattern.replace('<chrom>', chrom))\
                 .tocsr()[row, col] / (bias[row, r] * bias[col, r])
 
-        eprint('  computing size factors')
+        eprint('  computing size factors', skip=not verbose)
         if 'conditional' in norm:
             size_factors = scaling.__dict__[norm](balanced, col - row,
                                                   n_bins=n_bins)
@@ -325,13 +343,13 @@ class HiC3DeFDR(object):
             size_factors = scaling.__dict__[norm](balanced)
         scaled = balanced / size_factors
 
-        eprint('  computing disp_idx')
+        eprint('  computing disp_idx', skip=not verbose)
         dist = col - row
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
         disp_idx = np.all(mean > self.mean_thresh, axis=1) & \
             (dist >= self.dist_thresh_min)
 
-        eprint('  saving data to disk')
+        eprint('  saving data to disk', skip=not verbose)
         self.save_data(row, 'row', chrom)
         self.save_data(col, 'col', chrom)
         self.save_data(raw, 'raw', chrom)
@@ -381,7 +399,7 @@ class HiC3DeFDR(object):
         self.save_data(disp, 'disp', offsets)
         self.save_data(disp_per_dist, 'disp_per_dist')
 
-    def lrt(self, chrom=None, refit_mu=True):
+    def lrt(self, chrom=None, refit_mu=True, n_threads=0, verbose=True):
         """
         Runs the likelihood ratio test to test for differential interactions.
 
@@ -395,13 +413,28 @@ class HiC3DeFDR(object):
             compared in the LRT. Pass False to use the means across replicates
             directly, which is simpler and slightly faster but technically
             violates the assumptions of the LRT.
+        n_threads : int
+            The number of threads (technically GIL-avoiding child processes) to
+            use to process multiple chromosomes in parallel. Pass -1 to use as
+            many threads as there are CPUs. Pass 0 to process the chromosomes
+            serially.
+        verbose : bool
+            Pass False to silence reporting of progress to stderr.
         """
         if chrom is None:
-            for chrom in self.chroms:
-                self.lrt(chrom=chrom)
+            if n_threads:
+                parallel(
+                    self.lrt,
+                    [{'chrom': c, 'refit_mu': refit_mu, 'verbose': False}
+                     for c in self.chroms],
+                    n_threads=n_threads
+                )
+            else:
+                for chrom in self.chroms:
+                    self.lrt(chrom=chrom, refit_mu=refit_mu)
             return
         eprint('running LRT for chrom %s' % chrom)
-        eprint('  loading data')
+        eprint('  loading data', skip=not verbose)
         bias = self.load_bias(chrom)
         size_factors = self.load_data('size_factors', chrom)
         row = self.load_data('row', chrom)
@@ -410,7 +443,7 @@ class HiC3DeFDR(object):
         disp_idx = self.load_data('disp_idx', chrom)
         disp = self.load_data('disp', chrom)
 
-        eprint('  computing LRT results')
+        eprint('  computing LRT results', skip=not verbose)
         if len(size_factors.shape) == 2:
             f = bias[row][disp_idx] * bias[col][disp_idx] * \
                 size_factors[disp_idx, :]
@@ -421,7 +454,7 @@ class HiC3DeFDR(object):
             self.design.values, refit_mu=refit_mu)
 
         if self.loop_patterns:
-            eprint('  making loop_idx')
+            eprint('  making loop_idx', skip=not verbose)
             loop_pixels = set().union(
                 *sum((load_clusters(pattern.replace('<chrom>', chrom))
                       for pattern in self.loop_patterns.values()), []))
@@ -430,7 +463,7 @@ class HiC3DeFDR(object):
                                                   col[disp_idx])])
             self.save_data(loop_idx, 'loop_idx', chrom)
 
-        eprint('  saving results to disk')
+        eprint('  saving results to disk', skip=not verbose)
         self.save_data(pvalues, 'pvalues', chrom)
         self.save_data(llr, 'llr', chrom)
         self.save_data(mu_hat_null, 'mu_hat_null', chrom)
@@ -462,7 +495,8 @@ class HiC3DeFDR(object):
             offset += len(pvalues[i])
 
     def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=100,
-                       estimator='cml', refit_mu=True):
+                       estimator='cml', refit_mu=True, n_threads=0,
+                       verbose=True):
         """
         Shortcut method to run the analysis to q-values.
 
@@ -493,13 +527,20 @@ class HiC3DeFDR(object):
             compared in the LRT. Pass False to use the means across replicates
             directly, which is simpler and slightly faster but technically
             violates the assumptions of the LRT.
+        n_threads : int
+            The number of threads (technically GIL-avoiding child processes) to
+            use to process multiple chromosomes in parallel. Pass -1 to use as
+            many threads as there are CPUs. Pass 0 to process the chromosomes
+            serially.
+        verbose : bool
+            Pass False to silence reporting of progress to stderr.
         """
-        self.prepare_data(norm=norm, n_bins=n_bins_norm)
+        self.prepare_data(norm=norm, n_bins=n_bins_norm, n_threads=n_threads)
         self.estimate_disp(estimator=estimator)
-        self.lrt(refit_mu=refit_mu)
+        self.lrt(refit_mu=refit_mu, n_threads=n_threads)
         self.bh()
 
-    def threshold(self, chrom=None, fdr=0.05, cluster_size=3):
+    def threshold(self, chrom=None, fdr=0.05, cluster_size=3, n_threads=0):
         """
         Thresholds and clusters significantly differential pixels.
 
@@ -514,11 +555,25 @@ class HiC3DeFDR(object):
             The FDR to threshold on. Pass a list to do a sweep in series.
         cluster_size : int or list of int
             Clusters smaller than this size will be filtered out. Pass a list to
-            do a sweep in series.
+            do a sweep in series.,
+        n_threads : int
+            The number of threads (technically GIL-avoiding child processes) to
+            use to process multiple chromosomes in parallel. Pass -1 to use as
+            many threads as there are CPUs. Pass 0 to process the chromosomes
+            serially.
         """
         if chrom is None:
-            for chrom in self.chroms:
-                self.threshold(chrom=chrom, fdr=fdr, cluster_size=cluster_size)
+            if n_threads:
+                parallel(
+                    self.threshold,
+                    [{'chrom': c, 'fdr': fdr, 'cluster_size': cluster_size}
+                     for c in self.chroms],
+                    n_threads=n_threads
+                )
+            else:
+                for chrom in self.chroms:
+                    self.threshold(chrom=chrom, fdr=fdr,
+                                   cluster_size=cluster_size)
             return
         eprint('thresholding and clustering chrom %s' % chrom)
         # load everything
@@ -547,7 +602,7 @@ class HiC3DeFDR(object):
                               '%s/insig_%g_%i_%s.json' %
                               (self.outdir, f, s, chrom))
 
-    def classify(self, chrom=None, fdr=0.05, cluster_size=3):
+    def classify(self, chrom=None, fdr=0.05, cluster_size=3, n_threads=0):
         """
         Classifies significantly differential pixels according to which
         condition they are strongest in.
@@ -565,10 +620,24 @@ class HiC3DeFDR(object):
             The cluster size threshold used to identify clusters of
             significantly differential pixels via ``threshold_chrom()``. Pass a
             list to do a sweep in series.
+        n_threads : int
+            The number of threads (technically GIL-avoiding child processes) to
+            use to process multiple chromosomes in parallel. Pass -1 to use as
+            many threads as there are CPUs. Pass 0 to process the chromosomes
+            serially.
         """
         if chrom is None:
-            for chrom in self.chroms:
-                self.classify(chrom=chrom, fdr=fdr, cluster_size=cluster_size)
+            if n_threads:
+                parallel(
+                    self.classify,
+                    [{'chrom': c, 'fdr': fdr, 'cluster_size': cluster_size}
+                     for c in self.chroms],
+                    n_threads=n_threads
+                )
+            else:
+                for chrom in self.chroms:
+                    self.classify(chrom=chrom, fdr=fdr,
+                                  cluster_size=cluster_size)
             return
         eprint('classifying differential interactions on chrom %s' % chrom)
         # load everything
@@ -603,7 +672,7 @@ class HiC3DeFDR(object):
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
     def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, scramble=True,
-                 loop_pattern=None, outdir='sim'):
+                 loop_pattern=None, outdir='sim', n_threads=0, verbose=True):
         """
         Simulates raw contact matrices based on previously fitted scaled means
         and dispersions in a specific condition.
@@ -638,11 +707,28 @@ class HiC3DeFDR(object):
             None to use ``self.loop_patterns[cond]``.
         outdir : str
             Path to a directory to store the simulated data to.
+        n_threads : int
+            The number of threads (technically GIL-avoiding child processes) to
+            use to process multiple chromosomes in parallel. Pass -1 to use as
+            many threads as there are CPUs. Pass 0 to process the chromosomes
+            serially.
+        verbose : bool
+            Pass False to silence reporting of progress to stderr.
         """
         if chrom is None:
-            for chrom in self.chroms:
-                self.simulate(cond, chrom=chrom, beta=beta, p_diff=p_diff,
-                              loop_pattern=loop_pattern, outdir=outdir)
+            if n_threads:
+                parallel(
+                    self.simulate,
+                    [{'cond': cond, 'chrom': c, 'beta': beta, 'p_diff': p_diff,
+                      'loop_pattern': loop_pattern, 'outdir': outdir,
+                      'verbose': False}
+                     for c in self.chroms],
+                    n_threads=n_threads
+                )
+            else:
+                for chrom in self.chroms:
+                    self.simulate(cond, chrom=chrom, beta=beta, p_diff=p_diff,
+                                  loop_pattern=loop_pattern, outdir=outdir)
             return
         eprint('simulating data for chrom %s' % chrom)
         # resolve loop_pattern
@@ -679,7 +765,7 @@ class HiC3DeFDR(object):
 
         # rewrite size_factor matrix in terms of distance
         if len(size_factors.shape) == 2:
-            eprint('  converting size factors')
+            eprint('  converting size factors', skip=not verbose)
             dist = col - row
             n_dists = dist.max() + 1
             new_size_factors = np.zeros((n_dists, size_factors.shape[1]))
@@ -701,7 +787,7 @@ class HiC3DeFDR(object):
         # simulate and save
         classes, sim_iter = simulate(
             row, col, mean, disp_fn, bias, size_factors, clusters, beta=beta,
-            p_diff=p_diff, trend='dist')
+            p_diff=p_diff, trend='dist', verbose=verbose)
         np.savetxt('%s/labels_%s.txt' % (outdir, chrom), classes, fmt='%s')
         for rep, csr in zip(repnames, sim_iter):
             sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)

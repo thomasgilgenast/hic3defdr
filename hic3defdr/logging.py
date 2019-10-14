@@ -3,4 +3,7 @@ import sys
 
 
 def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
+    if not kwargs.get('skip', False):
+        if 'skip' in kwargs:
+            del kwargs['skip']
+        print(*args, file=sys.stderr, **kwargs)

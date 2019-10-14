@@ -55,7 +55,7 @@ def perturb_cluster(matrix, cluster, effect):
 
 
 def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
-             p_diff=0.4, trend='mean'):
+             p_diff=0.4, trend='mean', verbose=True):
     """
     Simulates raw contact matrices based on ``mean`` and ``disp_fn`` using
     ``bias`` and ``size_factors`` per simulated replicate and perturbing the
@@ -95,6 +95,8 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     trend : 'mean' or 'dist'
         Whether ``disp_fn`` returns the smoothed dispersion as a function of
         mean or of interaction distance.
+    verbose : bool
+        Pass False to silence reporting of progress to stderr.
 
     Returns
     -------
@@ -105,14 +107,14 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
         Generates the simulated raw contact matrices for each simulated
         replicate, in order.
     """
-    eprint('  assigning cluster classes')
+    eprint('  assigning cluster classes', skip=not verbose)
     classes = np.random.choice(
         np.array(['constit', 'up A', 'down A', 'up B', 'down B'], dtype='|S7'),
         size=len(clusters),
         p=[1 - p_diff, p_diff/4, p_diff/4, p_diff/4, p_diff/4]
     )
 
-    eprint('  perturbing clusters')
+    eprint('  perturbing clusters', skip=not verbose)
     mean_a_lil = sparse.coo_matrix(
         (mean, (row, col)), shape=(bias.shape[0], bias.shape[0])).tolil()
     mean_b_lil = sparse.coo_matrix(
@@ -135,17 +137,17 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     del mean_a_lil
     del mean_b_lil
 
-    eprint('  computing new row and col index')
+    eprint('  computing new row and col index', skip=not verbose)
     mean_csr_sum_coo = (mean_a_csr + mean_b_csr).tocoo()
     new_row = mean_csr_sum_coo.row
     new_col = mean_csr_sum_coo.col
     del mean_csr_sum_coo
 
-    eprint('  renaming cluster classes')
+    eprint('  renaming cluster classes', skip=not verbose)
     classes[(classes == 'up A') | (classes == 'down B')] = 'A'
     classes[(classes == 'up B') | (classes == 'down A')] = 'B'
 
-    eprint('  preparing generator')
+    eprint('  preparing generator', skip=not verbose)
     n_sim = size_factors.shape[-1]
     mean_a = mean_a_csr[new_row, new_col].A1
     mean_b = mean_b_csr[new_row, new_col].A1
@@ -154,7 +156,8 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
 
     def gen():
         for j, m in zip(range(n_sim), [mean_a]*(n_sim/2) + [mean_b]*(n_sim/2)):
-            eprint('  biasing and simulating rep %i/%i' % (j+1, n_sim))
+            eprint('  biasing and simulating rep %i/%i' % (j+1, n_sim),
+                   skip=not verbose)
             # bias mean
             if len(size_factors.shape) == 1:
                 bm = m * bias[new_row, j] * bias[new_col, j] * \
