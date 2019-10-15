@@ -10,6 +10,7 @@ from hic3defdr import HiC3DeFDR
 from hic3defdr.logging import eprint
 from hic3defdr.dispersion import mme_per_pixel
 from hic3defdr.clusters import load_clusters
+from hic3defdr.parallelization import parallel
 import hic3defdr.dispersion as dispersion
 
 
@@ -68,13 +69,21 @@ class Poisson3DeFDR(HiC3DeFDR):
         self.save_data(disp, 'disp', offsets)
         self.save_data(disp_per_dist, 'disp_per_dist')
 
-    def lrt(self, chrom=None, refit_mu=True):
+    def lrt(self, chrom=None, refit_mu=True, n_threads=0, verbose=True):
         if chrom is None:
-            for chrom in self.chroms:
-                self.lrt(chrom=chrom)
+            if n_threads:
+                parallel(
+                    self.lrt,
+                    [{'chrom': c, 'refit_mu': refit_mu, 'verbose': False}
+                     for c in self.chroms],
+                    n_threads=n_threads
+                )
+            else:
+                for chrom in self.chroms:
+                    self.lrt(chrom=chrom, refit_mu=refit_mu)
             return
         eprint('running LRT for chrom %s' % chrom)
-        eprint('  loading data')
+        eprint('  loading data', skip=not verbose)
         bias = self.load_bias(chrom)
         size_factors = self.load_data('size_factors', chrom)
         row = self.load_data('row', chrom)
@@ -82,14 +91,14 @@ class Poisson3DeFDR(HiC3DeFDR):
         raw = self.load_data('raw', chrom)
         disp_idx = self.load_data('disp_idx', chrom)
 
-        eprint('  computing LRT results')
+        eprint('  computing LRT results', skip=not verbose)
         f = bias[row, :][disp_idx, :] * bias[col, :][disp_idx, :] * \
             size_factors[disp_idx, :]
         pvalues, llr, mu_hat_null, mu_hat_alt = poisson_lrt(
             raw[disp_idx, :], f, self.design.values, refit_mu=True)
 
         if self.loop_patterns:
-            eprint('  making loop_idx')
+            eprint('  making loop_idx', skip=not verbose)
             loop_pixels = set().union(
                 *sum((load_clusters(pattern.replace('<chrom>', chrom))
                       for pattern in self.loop_patterns.values()), []))
@@ -98,7 +107,7 @@ class Poisson3DeFDR(HiC3DeFDR):
                                                   col[disp_idx])])
             self.save_data(loop_idx, 'loop_idx', chrom)
 
-        eprint('  saving results to disk')
+        eprint('  saving results to disk', skip=not verbose)
         self.save_data(pvalues, 'pvalues', chrom)
         self.save_data(llr, 'llr', chrom)
         self.save_data(mu_hat_null, 'mu_hat_null', chrom)
