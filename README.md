@@ -74,10 +74,13 @@ If you're following along, you can download the data like this:
 
 The required input files consist of:
 
- - raw contact matrices in `scipy.sparse` NPZ format,
+ - upper triangular, raw contact matrices in `scipy.sparse` NPZ format,
  - bias vectors in plain-text `np.savetxt()` format, and
- - loop cluster files in sparse JSON format, specifying the locations of loops
-   present in each condition
+ - loop cluster files in sparse JSON format (see below for more details),
+   specifying the locations of loops present in each condition
+
+TODO: explain how to import data from common Hi-C analysis tools into this
+format
 
 We would next describe the location of the input data files and use those to
 construct a `HiC3DeFDR` object:
@@ -119,10 +122,6 @@ We estimate dispersions with:
 
     >>> h.estimate_disp()
 
-By default, dispersion will be estimated as a function of the pixel-wise
-normalized mean. To fit dispersion as a function of distance instead, pass
-`trend='dist'`.
-
 We perform the likelihood ratio test to obtain p-values with:
 
     >>> h.lrt()
@@ -144,9 +143,23 @@ We can also sweep across FDR and/or cluster size thresholds:
 thresholds that have not been run yet. `h.threshold()` is the step that performs
 thresholding and clustering but not classification.
 
-The complete analysis of these four specific replicates of the Bonev et al.
-dataset should take about 10 minutes on a laptop if run for all chromosomes,
-fitting comfortably in memory.
+This example walkthrough should take less than 5 minutes for the two chromosomes
+included in the demo data. Run time for a whole-genome analysis will depend on
+parallelization as discussed in the next section.
+
+Parallelization
+---------------
+
+The functions `run_to_qvalues()`, `prepare_data()`, `lrt()`, `threshold()`,
+`classify()`, and `simulate()` operate in a per-chromosome manner. By default,
+each chromosome in the dataset will be processed in series. If multiple cores
+and sufficient memory are available, you can use the `n_threads` kwarg on these
+functions to use multiple subprocesses to process multiple chromosomes in
+parallel. Pass either a desired number of subprocesses to use, or pass
+`n_threads=-1` to use all available cores. The output logged to stderr will be
+truncated to reduce clutter from multiple subprocesses printing to stderr at the
+same time. This truncation is controlled by the `verbose` kwarg which is
+available on some of these parallelized functions.
 
 Intermediates and final output files
 ------------------------------------
@@ -179,7 +192,7 @@ All intermediates used in the computation will be saved to the disk inside the
 | `threshold()`     | `insig_<f>_<s>` | JSON                                | Constitutive clusters                       |
 | `classify()`      | `<c>_<f>_<s>`   | JSON                                | Classified differential clusters            |
 
-The table uses these abbreviations to refer to variable parts of certain 
+The table uses these abbreviations to refer to variable parts of certain
 intermediate names:
 
  - `<f>`: FDR threshold
@@ -187,6 +200,28 @@ intermediate names:
  - `<c>`: condition/class label
 
 TODO: add a tsv-style output file
+
+Sparse JSON cluster format
+--------------------------
+
+This is the format used both for supplying pre-identified, per-condition loop
+clusters as input to HiC3DeFDR as well as the format in which differential and
+constitutive interaction clusters are reported as output.
+
+The format describes the clusters on each chromosome in a separate JSON file.
+This JSON file contains a single JSON object, which is a list of list of list of
+integers. The inner lists are all of length 2 and represent specific pixels of
+the heatmap for that chromosome in terms of there row and column coordinates in
+zero-indexed bin units. The outer middle lists can be of any length and
+represent groups of pixels that belong to the same cluster. The length of the
+outer list corresponds to the number of clusters on that chromosome.
+
+These clusters can be loaded into and written from the corresponding plain
+Python objects using `hic3defdr.clusters.load_clusters()` and
+`hic3defdr.clusters.save_clusters()`, respectively. The plain Python objects can
+be converted to and from scipy sparse matrix objects using
+`hic3defdr.clusters.clusters_to_coo()` and
+`hic3defdr.clusters.convert_cluster_array_to_sparse()`, respectively.
 
 Visualizations
 --------------
@@ -211,18 +246,18 @@ You can also plot the y-axis in units of variance by plotting `yaxis='var'`:
 
 ![](images/dvr.png)
 
-It's possible to use the the one-dimensional distance dependence curve to 
-to convert distances to means and plot these figures with mean on the x-axis. To
-do this, pass `xaxis='mean'`.
+It's possible to use the the one-dimensional distance dependence curve to
+convert distances to means and plot these figures with mean on the x-axis. To do
+this, pass `xaxis='mean'`.
 
     >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr.png')
 
 ![](images/mvr.png)
 
-At low mean and high distance, the distance dependence curve flattens out and 
+At low mean and high distance, the distance dependence curve flattens out and
 the data become more noisy, making this conversion unreliable.
 
-It's also possible to show the dispersion fitted at just one distance scale, 
+It's also possible to show the dispersion fitted at just one distance scale,
 overlaying the sample mean and sample variance across replicates for each pixel
 as a blue hexbin plot:
 
@@ -320,18 +355,19 @@ run
     creating directory sim
 
 If we passed `trend='dist'` to `h.estimate_disp()`, we need to pass it to
-`h.simulate()` as well to ensure that the simulation function knows to treat
-the previously-fitted dispersion function as a function of distance.
+`h.simulate()` as well to ensure that the simulation function knows to treat the
+previously-fitted dispersion function as a function of distance.
 
 This takes the mean of the real scaled data across the ES replicates and
 perturbs the loops specified in `h.loop_patterns['ES']` up or down at random to
 generate two new conditions called "A" and "B". The scaled mean matrices for
-these conditions are then biased and scaled by the bias vectors and size
-factors taken from the real data, and the ES dispersion function fitted to the
-real ES data is applied to the biased and scaled means to obtain dispersion
-values. These means and dispersions are used to draw an NB random variable for
-each pixel of each simulated replicate. The number of replicates in each of the
-simulated conditions "A" and "B" will match the design of the real analysis.
+these conditions are then biased and scaled by the bias vectors and size factors
+taken from the real experimental replicates, and the ES dispersion function
+fitted to the real ES data is applied to the biased and scaled means to obtain
+dispersion values. These means and dispersions are used to draw an NB random
+variable for each pixel of each simulated replicate. The number of replicates in
+each of the simulated conditions "A" and "B" will match the design of the real
+analysis.
 
 The simulated raw contact matrices will be written to disk in CSR format as
 `<cond><rep>_<chrom>_raw.npz` where `<cond>` is "A" or "B" and `<rep>` is the
@@ -349,8 +385,7 @@ After generating simulated data, HiC3DeFDR can be run on the simulated data.
 Then, the true labels can be used to evaluate the performance of HiC3DeFDR on
 the simulated data.
 
-Evaluation of simulated data requires scikit-learn. To install this package,
-run
+Evaluation of simulated data requires scikit-learn. To install this package, run
 
     (venv)$ pip install scikit-learn
 
@@ -384,8 +419,8 @@ the following script:
     ...             filter_sparse_rows_count(sparse.load_npz(infile)), fl=0)
     ...         np.savetxt(outfile, bias)
 
-Next, we create a new HiC3DeFDR object to analyze the simulated data and run
-the analysis through to q-values:
+Next, we create a new HiC3DeFDR object to analyze the simulated data and run the
+analysis through to q-values:
 
     >>> import os.path
     >>> from hic3defdr import HiC3DeFDR
@@ -420,8 +455,8 @@ dimensional vectors:
  - `'tpr'`: the observed true positive rate at each threshold
  - `'fpr'`: the observed false positive rate at each threshold
 
-`eval.npz` files (possibly across many runs) can be visualized as ROC curves
-and FDR control curves by running:
+`eval.npz` files (possibly across many runs) can be visualized as ROC curves and
+FDR control curves by running:
 
     >>> import numpy as np
     >>> from hic3defdr import plot_roc, plot_fdr
@@ -436,10 +471,17 @@ Multiple `eval.npz` files can be compared in the same plot by simply adding
 elements to the lists in these function calls.
 
 The ROC plot shows FPR versus TPR, with the gray diagonal line representing the
-performance of random guessing. The AUROC for each curve is shown in the
-legend. If only one curve is plotted, selected thresholds (in units of FDR) are
-annotated with black arrows.
+performance of random guessing. The AUROC for each curve is shown in the legend.
+If only one curve is plotted, selected thresholds (in units of FDR threshold)
+are annotated with black arrows.
 
 The FDR control plot shows the observed FDR as a function of the FDR threshold.
 Points below the gray diagonal line represent points at which FDR is
 successfully controlled.
+
+Additional options
+------------------
+
+Additional options are exposed as kwargs on the functions in this library. Use
+`help(<function>)` to get detailed information about the options available for
+any function and what these options may be used for.

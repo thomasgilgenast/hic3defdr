@@ -671,8 +671,9 @@ class HiC3DeFDR(object):
                         c, '%s/%s_%g_%i_%s.json' %
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
-    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, scramble=True,
-                 loop_pattern=None, outdir='sim', n_threads=0, verbose=True):
+    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, scramble=False,
+                 skip_bias=False, loop_pattern=None, outdir='sim', n_threads=0,
+                 verbose=True):
         """
         Simulates raw contact matrices based on previously fitted scaled means
         and dispersions in a specific condition.
@@ -699,6 +700,9 @@ class HiC3DeFDR(object):
         scramble : bool
             Pass True to scramble the bias vectors and size factors when
             assigning them to simulated replicates.
+        skip_bias : bool
+            Pass True to set all bias factors and size factors to 1,
+            effectively simulating "unbiased" raw data.
         loop_pattern : str, optional
             File path pattern to sparse JSON formatted cluster files
             representing loop cluster locations for the simulation. Should
@@ -774,10 +778,13 @@ class HiC3DeFDR(object):
                 new_size_factors[d, :] = size_factors[idx, :]
             size_factors = new_size_factors
 
-        # scramble bias and size_factors
-        if scramble:
+        # get rid of bias
+        if skip_bias:
             bias = np.ones_like(bias)
             size_factors = np.ones_like(size_factors)
+
+        # scramble bias and size_factors
+        if scramble:
             bias = bias[:, (np.arange(n_sim)+1) % n_sim]
             if len(size_factors.shape) == 1:
                 size_factors = size_factors[(np.arange(n_sim)+3) % n_sim]
