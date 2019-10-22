@@ -724,6 +724,7 @@ class HiC3DeFDR(object):
                 parallel(
                     self.simulate,
                     [{'cond': cond, 'chrom': c, 'beta': beta, 'p_diff': p_diff,
+                      'scramble': scramble, 'skip_bias': skip_bias,
                       'loop_pattern': loop_pattern, 'outdir': outdir,
                       'verbose': False}
                      for c in self.chroms],
