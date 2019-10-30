@@ -266,7 +266,7 @@ class HiC3DeFDR(object):
         with open(picklefile, 'wb') as handle:
             return pickle.dump(disp_fn, handle, -1)
 
-    def prepare_data(self, chrom=None, norm='conditional_mor', n_bins=100,
+    def prepare_data(self, chrom=None, norm='conditional_mor', n_bins=-1,
                      n_threads=0, verbose=True):
         """
         Prepares raw and normalized data for analysis.
@@ -289,7 +289,8 @@ class HiC3DeFDR(object):
         n_bins : int, optional
             Number of distance bins to use during scaling normalization if
             ``norm`` is one of the conditional options. Pass 0 or None to match
-            pixels by exact distance.
+            pixels by exact distance. Pass -1 to use a reasonable default: 1/5
+            of ``self.dist_thesh_max``.
         n_threads : int
             The number of threads (technically GIL-avoiding child processes) to
             use to process multiple chromosomes in parallel. Pass -1 to use as
@@ -298,6 +299,9 @@ class HiC3DeFDR(object):
         verbose : bool
             Pass False to silence reporting of progress to stderr.
         """
+        if n_bins == -1:
+            n_bins = self.dist_thresh_max / 5
+
         if chrom is None:
             if n_threads:
                 parallel(
@@ -347,7 +351,7 @@ class HiC3DeFDR(object):
         dist = col - row
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
         disp_idx = np.all(mean >= self.mean_thresh, axis=1) & \
-            (dist >= self.dist_thresh_min) & np.all(size_factors > 0, axis=1)
+            (dist >= self.dist_thresh_min)
 
         eprint('  saving data to disk', skip=not verbose)
         self.save_data(row, 'row', chrom)
@@ -505,7 +509,7 @@ class HiC3DeFDR(object):
                            'qvalues', chrom)
             offset += len(pvalues[i])
 
-    def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=100,
+    def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=-1,
                        estimator='qcml', refit_mu=True, n_threads=0,
                        verbose=True):
         """
@@ -526,7 +530,8 @@ class HiC3DeFDR(object):
         n_bins_norm : int, optional
             Number of distance bins to use during scaling normalization if
             ``norm`` is one of the conditional options. Pass 0 or None to match
-            pixels by exact distance.
+            pixels by exact distance. Pass -1 to use a reasonable default: 1/5
+            of ``self.dist_thesh_max``.
         estimator : 'cml', 'qcml', 'mme', or a function
             Pass 'cml', 'qcml', 'mme' to use conditional maximum likelihood
             (CML), qnorm-CML (qCML), or method of moments estimation (MME) to
@@ -889,7 +894,7 @@ class HiC3DeFDR(object):
                               **kwargs)
 
     def plot_dispersion_fit(self, cond, xaxis='dist', yaxis='disp',
-                            dist_max=200, scatter_fit=-1, scatter_size=36,
+                            dist_max=None, scatter_fit=-1, scatter_size=36,
                             distance=None, hexbin=False, logx=False, logy=False,
                             **kwargs):
         """
@@ -907,7 +912,7 @@ class HiC3DeFDR(object):
             What to plot on the y-axis.
         dist_max : int
             If ``xaxis`` is 'dist', the maximum distance to include on the plot
-            in bin units.
+            in bin units. Pass None to use ``self.dist_thresh_max``.
         scatter_fit : int
             Pass a nonzero integer to draw the fitted dispersions passed in
             ``disp`` as a scatterplot of ``scatter_fit`` selected points. Pass
@@ -931,6 +936,10 @@ class HiC3DeFDR(object):
         pyplot axis
             The axis plotted on.
         """
+        # resolve max_dist
+        if dist_max is None:
+            dist_max = self.dist_thresh_max
+
         # identify cond_idx
         cond_idx = self.design.columns.tolist().index(cond)
 
