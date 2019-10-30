@@ -76,7 +76,7 @@ class HiC3DeFDR(object):
 
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
                  dist_thresh_min=4, dist_thresh_max=500, bias_thresh=0.1,
-                 mean_thresh=5.0, loop_patterns=None):
+                 mean_thresh=1.0, loop_patterns=None):
         """
         Base constructor. See ``help(HiC3DeFDR)`` for details.
         """
@@ -346,8 +346,8 @@ class HiC3DeFDR(object):
         eprint('  computing disp_idx', skip=not verbose)
         dist = col - row
         mean = np.dot(scaled, self.design) / np.sum(self.design, axis=0).values
-        disp_idx = np.all(mean > self.mean_thresh, axis=1) & \
-            (dist >= self.dist_thresh_min)
+        disp_idx = np.all(mean >= self.mean_thresh, axis=1) & \
+            (dist >= self.dist_thresh_min) & np.all(size_factors > 0, axis=1)
 
         eprint('  saving data to disk', skip=not verbose)
         self.save_data(row, 'row', chrom)
@@ -357,7 +357,7 @@ class HiC3DeFDR(object):
         self.save_data(scaled, 'scaled', chrom)
         self.save_data(disp_idx, 'disp_idx', chrom)
 
-    def estimate_disp(self, estimator='cml'):
+    def estimate_disp(self, estimator='qcml'):
         """
         Estimates dispersion parameters.
 
@@ -375,20 +375,31 @@ class HiC3DeFDR(object):
             if estimator in dispersion.__dict__ else estimator
 
         eprint('  loading data')
-        disp_idx, _ = self.load_data('disp_idx', 'all')
+        disp_idx, disp_idx_offsets = self.load_data('disp_idx', 'all')
         row, offsets = self.load_data('row', 'all', idx=disp_idx)
         col, _ = self.load_data('col', 'all', idx=disp_idx)
-        scaled, _ = self.load_data('scaled', 'all', idx=disp_idx)
+        raw, _ = self.load_data('raw', 'all', idx=disp_idx)
         dist = col - row
+        f = np.ones_like(raw, dtype=float)
+        for i, chrom in enumerate(self.chroms):
+            chrom_slice = slice(offsets[i], offsets[i+1])
+            row_chrom = row[chrom_slice]
+            col_chrom = col[chrom_slice]
+            disp_idx_chrom = disp_idx[disp_idx_offsets[i]:disp_idx_offsets[i+1]]
+            bias = self.load_bias(chrom)
+            size_factors = self.load_data('size_factors', chrom)[disp_idx_chrom]
+            f[chrom_slice] = bias[row_chrom, :] * bias[col_chrom, :] \
+                * size_factors
 
         disp_per_dist = np.zeros((self.dist_thresh_max+1, self.design.shape[1]))
         disp = np.zeros((disp_idx.sum(), self.design.shape[1]))
         for c, cond in enumerate(self.design.columns):
             eprint('  estimating dispersion for condition %s' % cond)
             for d in tqdm(range(self.dist_thresh_max+1)):
-                data = scaled[dist == d, :][:, self.design[cond]]
-                disp_per_dist[d, c] = np.nan if not data.size \
-                    else estimator(data)
+                raw_slice = raw[dist == d, :][:, self.design[cond]]
+                f_slice = f[dist == d, :][:, self.design[cond]]
+                disp_per_dist[d, c] = np.nan if not raw_slice.size \
+                    else estimator(raw_slice, f=f_slice)
             idx = np.isfinite(disp_per_dist[:, c])
             disp_fn = lowess_fit(np.arange(self.dist_thresh_max+1)[idx],
                                  disp_per_dist[:, c][idx], logx=True, logy=True)
@@ -495,7 +506,7 @@ class HiC3DeFDR(object):
             offset += len(pvalues[i])
 
     def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=100,
-                       estimator='cml', refit_mu=True, n_threads=0,
+                       estimator='qcml', refit_mu=True, n_threads=0,
                        verbose=True):
         """
         Shortcut method to run the analysis to q-values.
@@ -671,15 +682,11 @@ class HiC3DeFDR(object):
                         c, '%s/%s_%g_%i_%s.json' %
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
-    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, scramble=False,
-                 skip_bias=False, loop_pattern=None, outdir='sim', n_threads=0,
-                 verbose=True):
+    def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, skip_bias=False,
+                 loop_pattern=None, outdir='sim', n_threads=0, verbose=True):
         """
         Simulates raw contact matrices based on previously fitted scaled means
         and dispersions in a specific condition.
-
-        This function will only work when the design has exactly two conditions
-        and equal numbers of replicates per condition.
 
         Can only be run after ``estimate_dispersions()`` has been run.
 
@@ -697,9 +704,6 @@ class HiC3DeFDR(object):
         p_diff : float
             This fraction of loops will be perturbed across the simulated
             conditions. The remainder will be constitutive.
-        scramble : bool
-            Pass True to scramble the bias vectors and size factors when
-            assigning them to simulated replicates.
         skip_bias : bool
             Pass True to set all bias factors and size factors to 1,
             effectively simulating "unbiased" raw data.
@@ -724,9 +728,8 @@ class HiC3DeFDR(object):
                 parallel(
                     self.simulate,
                     [{'cond': cond, 'chrom': c, 'beta': beta, 'p_diff': p_diff,
-                      'scramble': scramble, 'skip_bias': skip_bias,
-                      'loop_pattern': loop_pattern, 'outdir': outdir,
-                      'verbose': False}
+                      'skip_bias': skip_bias, 'loop_pattern': loop_pattern,
+                      'outdir': outdir, 'verbose': False}
                      for c in self.chroms],
                     n_threads=n_threads
                 )
@@ -741,8 +744,12 @@ class HiC3DeFDR(object):
             loop_pattern = self.loop_patterns[cond]
 
         # load everything
-        bias = self.load_bias(chrom)
+        bias = self.load_bias(chrom)[:, self.design[cond]]
         size_factors = self.load_data('size_factors', chrom)
+        if len(size_factors.shape) == 2:
+            size_factors = size_factors[:, self.design[cond]]
+        else:
+            size_factors = size_factors[self.design[cond]]
         row = self.load_data('row', chrom)
         col = self.load_data('col', chrom)
         scaled = self.load_data('scaled', chrom)[:, self.design[cond]]
@@ -754,7 +761,7 @@ class HiC3DeFDR(object):
 
         # book keeping
         check_outdir('%s/' % outdir)
-        n_sim = size_factors.shape[-1]
+        n_sim = size_factors.shape[-1] * 2
         repnames = sum((['%s%i' % (c, i+1) for i in range(n_sim/2)]
                         for c in ['A', 'B']), [])
 
@@ -784,13 +791,9 @@ class HiC3DeFDR(object):
             bias = np.ones_like(bias)
             size_factors = np.ones_like(size_factors)
 
-        # scramble bias and size_factors
-        if scramble:
-            bias = bias[:, (np.arange(n_sim)+1) % n_sim]
-            if len(size_factors.shape) == 1:
-                size_factors = size_factors[(np.arange(n_sim)+3) % n_sim]
-            else:
-                size_factors = size_factors[:, (np.arange(n_sim)+3) % n_sim]
+        # tile bias and size_factors
+        bias = np.tile(bias, 2)
+        size_factors = np.tile(size_factors, 2)
 
         # simulate and save
         classes, sim_iter = simulate(

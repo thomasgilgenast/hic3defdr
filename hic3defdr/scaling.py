@@ -7,6 +7,23 @@ from hic3defdr.binning import equal_bin
 from hic3defdr.progress import tqdm_maybe as tqdm
 
 
+def no_scaling(data):
+    """
+    Computes dummy size factors of 1 for each replicate.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Rows correspond to pixels, columns correspond to replicates.
+
+    Returns
+    -------
+    np.ndarray
+        Vector of size factors, per replicate.
+    """
+    return np.ones(data.shape[1], dtype=float)
+
+
 def median_of_ratios(data, filter_zeros=True):
     """
     Computes size factors for a dataset using the median of ratios method.

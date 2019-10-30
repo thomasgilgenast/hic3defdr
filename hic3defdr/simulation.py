@@ -9,7 +9,7 @@ from hic3defdr.scaled_nb import mvr
 from hic3defdr.logging import eprint
 
 
-def perturb_cluster(matrix, cluster, effect):
+def perturb_cluster(matrix, cluster, effect, respect_zeros=True):
     """
     Perturbs a specific cluster in a contact matrix with a given effect.
 
@@ -29,6 +29,9 @@ def perturb_cluster(matrix, cluster, effect):
         The effect to apply to the cluster. Values in ``matrix`` under the
         cluster footprint will be shifted by this proportion of their original
         value.
+    respect_zeros : bool
+        Pass True to preserve the sparsity structure of ``matrix`` if it is
+        sparse. Has no effect if ``matrix`` is dense.
     """
     # come up with a rectangle that covers the cluster with a 1px buffer
     rs, cs = map(np.array, zip(*cluster))
@@ -50,8 +53,18 @@ def perturb_cluster(matrix, cluster, effect):
     footprint /= 2
 
     # apply the effect footprint
-    matrix[r_slice, c_slice] += matrix[r_slice, c_slice].toarray() * \
-        footprint * effect
+    if isinstance(matrix, sparse.spmatrix) and respect_zeros:
+        s = matrix[r_slice, c_slice]
+        s_coo = s.tocoo()
+        r_read_idx = s_coo.row
+        c_read_idx = s_coo.col
+        r_write_idx = r_read_idx + r_min
+        c_write_idx = c_read_idx + c_min
+        new_values = s.toarray() * footprint * effect
+        matrix[r_write_idx, c_write_idx] += new_values[r_read_idx, c_read_idx]
+    else:
+        matrix[r_slice, c_slice] += matrix[r_slice, c_slice].toarray() * \
+            footprint * effect
 
 
 def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
@@ -114,34 +127,41 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
         p=[1 - p_diff, p_diff/4, p_diff/4, p_diff/4, p_diff/4]
     )
 
+    # adjust indexing to make mean nonzero
+    nonzero_idx = mean > 0
+    row = row[nonzero_idx]
+    col = col[nonzero_idx]
+    mean = mean[nonzero_idx]
+    assert np.all(mean > 0)
+
     eprint('  perturbing clusters', skip=not verbose)
-    mean_a_lil = sparse.coo_matrix(
-        (mean, (row, col)), shape=(bias.shape[0], bias.shape[0])).tolil()
-    mean_b_lil = sparse.coo_matrix(
-        (mean, (row, col)), shape=(bias.shape[0], bias.shape[0])).tolil()
-    del row
-    del col
+    mean_a_csr = sparse.coo_matrix(
+        (mean, (row, col)), shape=(bias.shape[0], bias.shape[0])).tocsr()
+    mean_b_csr = sparse.coo_matrix(
+        (mean, (row, col)), shape=(bias.shape[0], bias.shape[0])).tocsr()
     for i, cluster in enumerate(clusters):
         if classes[i] == 'up A':
-            perturb_cluster(mean_a_lil, cluster, beta)
+            perturb_cluster(mean_a_csr, cluster, beta)
         elif classes[i] == 'down A':
-            perturb_cluster(mean_a_lil, cluster, -beta)
+            perturb_cluster(mean_a_csr, cluster, -beta)
         elif classes[i] == 'up B':
-            perturb_cluster(mean_b_lil, cluster, beta)
+            perturb_cluster(mean_b_csr, cluster, beta)
         elif classes[i] == 'down B':
-            perturb_cluster(mean_b_lil, cluster, -beta)
-    mean_a_csr = mean_a_lil.tocsr()
-    mean_b_csr = mean_b_lil.tocsr()
-    assert np.all(mean_a_csr.tocoo().data >= 0)
-    assert np.all(mean_b_csr.tocoo().data >= 0)
-    del mean_a_lil
-    del mean_b_lil
+            perturb_cluster(mean_b_csr, cluster, -beta)
 
-    eprint('  computing new row and col index', skip=not verbose)
-    mean_csr_sum_coo = (mean_a_csr + mean_b_csr).tocoo()
-    new_row = mean_csr_sum_coo.row
-    new_col = mean_csr_sum_coo.col
-    del mean_csr_sum_coo
+    # convert to COO
+    mean_a_coo = mean_a_csr.tocoo()
+    mean_b_coo = mean_b_csr.tocoo()
+    del mean_a_csr
+    del mean_b_csr
+
+    # confirm index alignment
+    assert np.all(mean_a_coo.row == row)
+    assert np.all(mean_b_coo.row == row)
+    assert np.all(mean_a_coo.col == col)
+    assert np.all(mean_b_coo.col == col)
+    assert np.all(mean_a_coo.data > 0)
+    assert np.all(mean_b_coo.data > 0)
 
     eprint('  renaming cluster classes', skip=not verbose)
     classes[(classes == 'up A') | (classes == 'down B')] = 'A'
@@ -149,32 +169,32 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
 
     eprint('  preparing generator', skip=not verbose)
     n_sim = size_factors.shape[-1]
-    mean_a = mean_a_csr[new_row, new_col].A1
-    mean_b = mean_b_csr[new_row, new_col].A1
-    assert np.all(mean_a >= 0)
-    assert np.all(mean_b >= 0)
+    mean_a = mean_a_coo.data
+    mean_b = mean_b_coo.data
 
     def gen():
         for j, m in zip(range(n_sim), [mean_a]*(n_sim/2) + [mean_b]*(n_sim/2)):
             eprint('  biasing and simulating rep %i/%i' % (j+1, n_sim),
                    skip=not verbose)
-            # bias mean
+            # compute aggregate bias factor
             if len(size_factors.shape) == 1:
-                bm = m * bias[new_row, j] * bias[new_col, j] * \
-                    size_factors[j] + 0.1
+                f = bias[row, j] * bias[col, j] * size_factors[j]
             else:
-                bm = m * bias[new_row, j] * bias[new_col, j] * \
-                    size_factors[new_col-new_row, j] + 0.1
-            assert np.all(bm > 0)
+                f = bias[row, j] * bias[col, j] * size_factors[col-row, j]
+            assert np.all(f > 0)
+            assert np.all((m * f) > 0)
+
+            # compute biased mean
+            bm = m * f
 
             # establish cov
-            cov = bm if trend == 'mean' else new_col - new_row
+            cov = bm if trend == 'mean' else col - row
 
             # simulate
             yield sparse.coo_matrix(
                 (freeze_distribution(
                     stats.nbinom, bm, mvr(bm, disp_fn(cov))).rvs(),
-                 (new_row, new_col)), shape=(bias.shape[0], bias.shape[0]))\
+                 (row, col)), shape=(bias.shape[0], bias.shape[0]))\
                 .tocsr()
 
     return classes, gen()

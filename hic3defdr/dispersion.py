@@ -2,25 +2,15 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.special import gammaln
 
-from lib5c.algorithms.qnorm import qnorm
-
-from hic3defdr.scaled_nb import inverse_mvr
+from hic3defdr.scaled_nb import inverse_mvr, equalize
 from hic3defdr.binning import equal_bin
 from hic3defdr.lowess import lowess_fit
 
 
-def qcml(data):
+def qcml(data, f=None, max_iter=10, tol=1e-4):
     """
     Estimates the dispersion parameter of a NB distribution given the data via
-    "qnorm-CML", a simplified variant of quantile-adjusted conditional maximum
-    likelihood.
-
-    "qnorm-CML" first applies quantile normalization across the replicates, then
-    applies the normal CML algorithm. This is different than the original
-    quantile-adjusted CML approach proposed in Robinson and Smyth 2008, but
-    might work similarly in practice if the average of multiple scaled negative
-    binomial distributions is approximately negative binomial (though we have no
-    evidence to support this claim).
+    quantile-adjusted conditional maximum likelihood.
 
     One common dispersion will be estimated across all pixels in the data,
     though the individual pixels in the data may have distinct means.
@@ -29,16 +19,31 @@ def qcml(data):
     ----------
     data : np.ndarray
         Rows should correspond to pixels, columns to replicates.
+    f : np.ndarray
+        Matrix of scaling factors parallel to ``data``. Pass None to skip
+        scaling.
 
     Returns
     -------
     float
         The estimated dispersion.
     """
-    return cml(qnorm(data))
+    if f is None:
+        f = np.ones_like(data, dtype=float)
+    disp = 0.01
+    delta = np.inf
+    it = 1
+    while delta > tol and it <= max_iter:
+        pseudodata = equalize(data, f, disp)
+        new_disp = cml(pseudodata)
+        delta = np.abs(disp - new_disp)
+        disp = new_disp
+        if delta < tol:
+            break
+    return disp
 
 
-def cml(data):
+def cml(data, f=None):
     """
     Estimates the dispersion parameter of a NB distribution given the data via
     conditional maximum likelihood.
@@ -50,12 +55,17 @@ def cml(data):
     ----------
     data : np.ndarray
         Rows should correspond to pixels, columns to replicates.
+    f : np.ndarray
+        Matrix of scaling factors parallel to ``data``. Pass None to skip
+        scaling.
 
     Returns
     -------
     float
         The estimated dispersion.
     """
+    if f is not None:
+        data /= f
     n = data.shape[1]
     z = np.sum(data, axis=1)
 
@@ -70,7 +80,7 @@ def cml(data):
     return delta_hat / (1-delta_hat)
 
 
-def mme_per_pixel(data):
+def mme_per_pixel(data, f=None):
     """
     Estimates the dispersion parameter of a separate NB distribution for each
     pixel given the data using a method of moments approach.
@@ -79,18 +89,23 @@ def mme_per_pixel(data):
     ----------
     data : np.ndarray
         Rows should correspond to pixels, columns to replicates.
+    f : np.ndarray
+        Matrix of scaling factors parallel to ``data``. Pass None to skip
+        scaling.
 
     Returns
     -------
     np.ndarray
         The estimated dispersion for each pixel.
     """
+    if f is not None:
+        data /= f
     m = np.mean(data, axis=1)
     v = np.var(data, axis=1, ddof=1)
     return inverse_mvr(m, v)
 
 
-def mme(data):
+def mme(data, f=None):
     """
     Estimates the dispersion parameter of a NB distribution given the data using
     a method of moments approach.
@@ -102,21 +117,28 @@ def mme(data):
     ----------
     data : np.ndarray
         Rows should correspond to pixels, columns to replicates.
+    f : np.ndarray
+        Matrix of scaling factors parallel to ``data``. Pass None to skip
+        scaling.
 
     Returns
     -------
     float
         The estimated dispersion.
     """
+    if f is not None:
+        data /= f
     return np.nanmean(mme_per_pixel(data))
 
 
-def estimate_dispersion(data, cov, estimator='cml', n_bins=100, logx=False):
+def estimate_dispersion(data, cov, estimator='qcml', n_bins=100, logx=False):
     """
     Estimates trended dispersion for each point in ``data`` with respect to a
     covariate ``cov``, using ``estimator`` to estimate the dispersion within
     each of ``n_bins`` equal-number bins and fitting a curve through the per-bin
     dispersion estimates using lowess smoothing.
+
+    This function is deprecated and has no callers.
 
     Parameters
     ----------
