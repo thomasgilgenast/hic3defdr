@@ -890,8 +890,8 @@ class HiC3DeFDR(object):
         for r in range(self.design.shape[0]):
             balanced[:, r] = raw[:, r] / (bias[row, r] * bias[col, r])
 
-        return plot_dd_curves(row, col, balanced, scaled, self.design, log=log,
-                              **kwargs)
+        return plot_dd_curves(row, col, balanced, scaled,
+                              repnames=self.design.index, log=log, **kwargs)
 
     def plot_dispersion_fit(self, cond, xaxis='dist', yaxis='disp',
                             dist_max=None, scatter_fit=-1, scatter_size=36,
