@@ -7,10 +7,12 @@ def context():
     Returns
     -------
     str
-        The context, either 'jupyter', 'ipython', or 'terminal'.
+        The context, either 'colab', 'jupyter', 'ipython', or 'terminal'.
     """
     try:
         ipy_str = str(type(get_ipython()))
+        if 'colab' in ipy_str:
+            return 'colab'
         if 'zmqshell' in ipy_str:
             return 'jupyter'
         if 'terminal' in ipy_str:
@@ -20,7 +22,7 @@ def context():
 
 
 try:
-    if context() == 'jupyter':
+    if context() in ['jupyter', 'colab']:
         from tqdm import tqdm_notebook as tqdm
     else:
         from tqdm import tqdm
