@@ -114,22 +114,74 @@ To threshold, cluster, and classify the significantly differential loops, run:
 Step-by-step walkthrough
 ------------------------
 
-We prepare the input data and compute the size factors with:
+Calling `h.run_to_qvalues()` runs the four main steps of the analysis in
+sequence. These four steps are described in further detail below. Any kwargs
+passed to `h.run_to_qvalues()` will be passed along to the appropriate step; see
+`help(HiC3DeFDR.run_to_qvalues())` for details.
 
-    >>> h.prepare_data()
+### Step 1: Preparing input data
 
-We estimate dispersions with:
+The function call `h.prepare_data()` prepares the input raw contact matrices and
+bias vectors specified by `h.raw_npz_patterns` and `h.bias_patterns` for all
+chromosomes specified in `h.chroms`, performs library size normalization, and
+determines what points should be considered for dispersion estimation. This
+creates intermediate files in the output directory `h.outdir` that represent the
+raw and scaled values, as well as the estimated size factors, and a boolean
+vector `disp_idx` indicating which points will be used for dispersion
+estimation. If `loop_patterns` was passed to the constructor, an additional
+boolean vector `loop_idx` is created to mark which points that pass `disp_idx`
+lie within looping interactions specified by `h.loop_patterns`. The raw and
+scaled data are stored in a rectangular matrix format where each row is a pixel
+of the contact matrix and each column is a replicate. If the size factors are
+estimated as a function of distance, the estimated size factors are also stored
+in this format. Two separate vectors called `row` and `col` are used to store
+the row and column index of the pixel represented by each row of the rectangular
+matrices. Together, the `row` and `col` vectors plus any of the rectangular
+matrices represent a generalization of a COO format sparse matrix to multiple
+replicates (in the standard COO format the `row` and `col` vectors are
+complemented by a single `value` vector).
 
-    >>> h.estimate_disp()
+The size factors can be estimated with a variety of methods defined in the
+`hic3defdr.scaling` module. The method to use is specified by the `norm` kwarg
+passed to `h.prepare_data()`. Some of these methods estimate size factors as a
+function of interaction distance, instead of simply estimating one size factor
+for each replicate as is common in RNA-seq differential expression analysis.
+When these methods are used, the number of bins to use when binning distances
+for distance-based estimation of the size factors can be specified with the
+`n_bins` kwarg. The defaults for this function use the conditional median of
+ratios approach (`hic3defdr.scaling.conditional_mor`) and an
+automatically-selected number of bins.
 
-We perform the likelihood ratio test to obtain p-values with:
+### Step 2: Estimating dispersions
 
-    >>> h.lrt()
+The function call `h.estimate_disp()` estimates the dispersion parameters at
+each distance scale in the data and fits a lowess curve through the graph of
+distance versus dispersion to obtain final smoothed dispersion estimates for
+each pixel.
 
-We apply BH-FDR correction to the p-values across all chromosomes to obtain 
-q-values:
+The `estimator` kwarg on `h.estimate_disp()` specifies which dispersion
+estimation method to use, out of a selection of options defined in the
+`hic3defdr.dispersion` module. The default is to use quantile-adjusted
+conditional maximum likelihood (qCML).
 
-    >>> h.bh()
+### Step 3: Likelihood ratio test
+
+The function call `h.lrt()` performs a likelihood ratio test (LRT) for each
+pixel. This LRT compares a null model of no differential expression (fitting one
+true mean parameter shared by all replicates irrespective of condition) to an
+alternative model in which the two conditions have different true mean
+parameters.
+
+### Step 4: False discovery rate (FDR) control
+
+The function call `h.bh()` performs Benjamini-Hochberg FDR correction on the
+p-values called via the LRT in the previous step, considering only a subset of
+pixels that are involved in looping interactions (as specified by
+`h.loop_patterns`; if `loop_patterns` was not passed to the constructor then all
+pixels are included in the BH-FDR correction). This results in final q-values
+for each loop pixel.
+
+### Thresholding, clustering, and classification
 
 We threshold, cluster, and classify the significantly differential loops:
 
@@ -177,7 +229,8 @@ All intermediates used in the computation will be saved to the disk inside the
 | `prepare_data()`  | `raw`           | `(n_pixels, n_reps)`                | Raw count values                            |
 | `prepare_data()`  | `size_factors`  | `(n_reps,)` or `(n_pixels, n_reps)` | Size factors                                |
 | `prepare_data()`  | `scaled`        | `(n_pixels, n_reps)`                | Normalized count values                     |
-| `estimate_disp()` | `disp_idx`      | `(n_pixels,)`                       | Marks pixels for which dispersion is fitted |
+| `prepare_data()`  | `disp_idx`      | `(n_pixels,)`                       | Marks pixels for which dispersion is fitted |
+| `prepare_data()`  | `loop_idx`      | `(disp_idx.sum(),)`                 | Marks pixels which lie in loops             |
 | `estimate_disp()` | `cov_per_bin`   | `(n_bins, n_conds)`                 | Average mean count or distance in each bin  |
 | `estimate_disp()` | `disp_per_bin`  | `(n_bins, n_conds)`                 | Pooled dispersion estimates in each bin     |
 | `estimate_disp()` | `disp_fn_<c>`   | pickled function                    | Fitted dispersion function                  |
@@ -186,7 +239,6 @@ All intermediates used in the computation will be saved to the disk inside the
 | `lrt()`           | `mu_hat_alt`    | `(disp_idx.sum(), n_conds)`         | Alternative model mean parameters           |
 | `lrt()`           | `llr`           | `(disp_idx.sum(),)`                 | Log-likelihood ratio                        |
 | `lrt()`           | `pvalues`       | `(disp_idx.sum(),)`                 | LRT-based p-value                           |
-| `lrt()`           | `loop_idx`      | `(disp_idx.sum(),)`                 | Marks pixels which lie in loops             |
 | `bh()`            | `qvalues`       | `(loop_idx.sum(),)`                 | BH-corrected q-values                       |
 | `threshold()`     | `sig_<f>_<s>`   | JSON                                | Significantly differential clusters         |
 | `threshold()`     | `insig_<f>_<s>` | JSON                                | Constitutive clusters                       |
@@ -227,6 +279,10 @@ Visualizations
 --------------
 
 The `HiC3DeFDR` object can be used to draw visualizations of the analysis.
+
+The visualization functions are wrapped with the [`@plotter` decorator](https://lib5c.readthedocs.io/en/latest/plotting/)
+and therefore all support the convenience kwargs provided by that decorator
+(such as `outfile`).
 
 ### Distance dependence curves before and after scaling
 
@@ -290,7 +346,7 @@ loops, pass `idx='loop'`.
 
 ![](images/ma.png)
 
-To exclude non-loop pixels, pass `include_non_loops=False`.
+To include non-loop pixels, pass `include_non_loops=True`.
 
 ### Pixel detail grid
 

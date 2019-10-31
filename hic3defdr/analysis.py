@@ -21,7 +21,7 @@ from hic3defdr.simulation import simulate
 from hic3defdr.evaluation import make_y_true, evaluate
 from hic3defdr.plotting.distance_dependence import plot_dd_curves
 from hic3defdr.plotting.histograms import plot_pvalue_histogram
-from hic3defdr.plotting.dispersion import plot_mvr
+from hic3defdr.plotting.dispersion import plot_mvr, plot_ddr
 from hic3defdr.plotting.ma import plot_ma
 from hic3defdr.plotting.grid import plot_grid
 from hic3defdr.progress import tqdm_maybe as tqdm
@@ -75,7 +75,7 @@ class HiC3DeFDR(object):
     """
 
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
-                 dist_thresh_min=4, dist_thresh_max=500, bias_thresh=0.1,
+                 dist_thresh_min=4, dist_thresh_max=200, bias_thresh=0.1,
                  mean_thresh=1.0, loop_patterns=None):
         """
         Base constructor. See ``help(HiC3DeFDR)`` for details.
@@ -353,6 +353,16 @@ class HiC3DeFDR(object):
         disp_idx = np.all(mean >= self.mean_thresh, axis=1) & \
             (dist >= self.dist_thresh_min)
 
+        if self.loop_patterns:
+            eprint('  making loop_idx', skip=not verbose)
+            loop_pixels = set().union(
+                *sum((load_clusters(pattern.replace('<chrom>', chrom))
+                      for pattern in self.loop_patterns.values()), []))
+            loop_idx = np.array([True if pixel in loop_pixels else False
+                                 for pixel in zip(row[disp_idx],
+                                                  col[disp_idx])])
+            self.save_data(loop_idx, 'loop_idx', chrom)
+
         eprint('  saving data to disk', skip=not verbose)
         self.save_data(row, 'row', chrom)
         self.save_data(col, 'col', chrom)
@@ -467,16 +477,6 @@ class HiC3DeFDR(object):
         pvalues, llr, mu_hat_null, mu_hat_alt = lrt(
             raw[disp_idx, :], f, np.dot(disp, self.design.values.T),
             self.design.values, refit_mu=refit_mu)
-
-        if self.loop_patterns:
-            eprint('  making loop_idx', skip=not verbose)
-            loop_pixels = set().union(
-                *sum((load_clusters(pattern.replace('<chrom>', chrom))
-                      for pattern in self.loop_patterns.values()), []))
-            loop_idx = np.array([True if pixel in loop_pixels else False
-                                 for pixel in zip(row[disp_idx],
-                                                  col[disp_idx])])
-            self.save_data(loop_idx, 'loop_idx', chrom)
 
         eprint('  saving results to disk', skip=not verbose)
         self.save_data(pvalues, 'pvalues', chrom)
@@ -936,6 +936,13 @@ class HiC3DeFDR(object):
         pyplot axis
             The axis plotted on.
         """
+        # short circuit to plot_ddr() if possible
+        if xaxis == 'dist' and yaxis == 'disp' and scatter_fit == -1 \
+                and distance is None and hexbin is False and logx is False \
+                and logy is False:
+            return self.plot_ddr(cond, dist_max=dist_max,
+                                 scatter_size=scatter_size, **kwargs)
+
         # resolve max_dist
         if dist_max is None:
             dist_max = self.dist_thresh_max
@@ -991,6 +998,48 @@ class HiC3DeFDR(object):
             logx=logx, logy=logy, **kwargs
         )
 
+    def plot_ddr(self, cond, dist_max=None, scatter_size=36, **kwargs):
+        """
+        Fast alternative to plot_dispersion_fit() that only supports plotting
+        distance versus dispersion, with no hexbin or ``scatter_points``
+        support.
+
+        Parameters
+        ----------
+        cond : str
+            The name of the chromosome and condition, respectively, to plot the
+            fit for.
+        dist_max : int
+            If ``xaxis`` is 'dist', the maximum distance to include on the plot
+            in bin units. Pass None to use ``self.dist_thresh_max``.
+        scatter_size : int
+            The marker size when plotting scatterplots.
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis
+            The axis plotted on.
+        """
+        # resolve max_dist
+        if dist_max is None:
+            dist_max = self.dist_thresh_max
+
+        # identify cond_idx
+        cond_idx = self.design.columns.tolist().index(cond)
+
+        # load everything
+        disp_per_dist = self.load_data('disp_per_dist')[:, cond_idx]
+        idx = np.isfinite(disp_per_dist)
+        disp_per_bin = disp_per_dist[idx]
+        dist_per_bin = np.arange(self.dist_thresh_max + 1)[idx]
+        disp_fn = self.load_disp_fn(cond)
+
+        # plot
+        return plot_ddr(dist_per_bin, disp_per_bin, disp_fn,
+                        scatter_size=scatter_size, **kwargs)
+
     def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """
         Plots the p-value distribution across all chromosomes.
@@ -1042,7 +1091,7 @@ class HiC3DeFDR(object):
         # plot
         return plot_pvalue_histogram(qvalues, xlabel='qvalue', **kwargs)
 
-    def plot_ma(self, fdr=0.05, conds=None, include_non_loops=True, s=1,
+    def plot_ma(self, fdr=0.05, conds=None, include_non_loops=False, s=1,
                 **kwargs):
         """
         Plots an MA plot for a given chromosome.

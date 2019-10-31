@@ -256,3 +256,42 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
     plt.ylabel(ylabel)
     if legend:
         plt.legend()
+
+
+@plotter
+def plot_ddr(dist_per_bin, disp_per_bin, disp_fn, scatter_size=36, legend=True,
+             **kwargs):
+    """
+    Simplified plotter to visualized distance-dispersion relationships.
+
+    Plots per-distance dispersion estimates and the fitted dispersion curve.
+
+    Parameters
+    ----------
+    dist_per_bin, disp_per_bin : np.ndarray
+        The distances and estimated dispersions for each distance, respectively.
+    disp_fn : function
+        The smoothed dispersion function. Returns the smoothed dispersion as a
+        function of distance.
+    scatter_size : int
+        The marker size when plotting scatter plots.
+    kwargs : kwargs
+        Typical plotter kwargs.
+
+    Returns
+    -------
+    pyplot axis
+        The axis plotted on.
+    """
+    xmin = dist_per_bin.min()
+    xmax = dist_per_bin.max()
+    xs = np.linspace(xmin, xmax, 100)
+    ys = disp_fn(xs)
+    plt.scatter(dist_per_bin, disp_per_bin, label=r'$\hat{\alpha}$ per bin',
+                color='C1', size=scatter_size)
+    plt.plot(xs, ys, label=r'smoothed $\hat{\alpha}$', color='C4', lw=3)
+    plt.hlines(0, xmin, xmax, label='Poisson', color='C3', lw=3, linestyle='--')
+    plt.ylabel('dispersion')
+    plt.xlabel('distance')
+    if legend:
+        plt.legend()
