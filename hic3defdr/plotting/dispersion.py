@@ -288,7 +288,7 @@ def plot_ddr(dist_per_bin, disp_per_bin, disp_fn, scatter_size=36, legend=True,
     xs = np.linspace(xmin, xmax, 100)
     ys = disp_fn(xs)
     plt.scatter(dist_per_bin, disp_per_bin, label=r'$\hat{\alpha}$ per bin',
-                color='C1', size=scatter_size)
+                color='C1', s=scatter_size)
     plt.plot(xs, ys, label=r'smoothed $\hat{\alpha}$', color='C4', lw=3)
     plt.hlines(0, xmin, xmax, label='Poisson', color='C3', lw=3, linestyle='--')
     plt.ylabel('dispersion')
