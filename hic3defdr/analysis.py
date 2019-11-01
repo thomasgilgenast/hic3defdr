@@ -25,7 +25,7 @@ from hic3defdr.plotting.dispersion import plot_mvr, plot_ddr
 from hic3defdr.plotting.ma import plot_ma
 from hic3defdr.plotting.grid import plot_grid
 from hic3defdr.progress import tqdm_maybe as tqdm
-from hic3defdr.parallelization import parallel
+from hic3defdr.parallelization import parallel_apply, parallel_map
 
 
 class HiC3DeFDR(object):
@@ -304,7 +304,7 @@ class HiC3DeFDR(object):
 
         if chrom is None:
             if n_threads:
-                parallel(
+                parallel_apply(
                     self.prepare_data,
                     [{'chrom': c, 'norm': norm, 'n_bins': n_bins,
                       'verbose': False}
@@ -371,7 +371,7 @@ class HiC3DeFDR(object):
         self.save_data(scaled, 'scaled', chrom)
         self.save_data(disp_idx, 'disp_idx', chrom)
 
-    def estimate_disp(self, estimator='qcml'):
+    def estimate_disp(self, estimator='qcml', n_threads=0):
         """
         Estimates dispersion parameters.
 
@@ -383,6 +383,11 @@ class HiC3DeFDR(object):
             (MME) to estimate the dispersion within each bin. Pass a function
             that takes in a (pixels, replicates) shaped array of data and
             returns a dispersion value to use that instead.
+        n_threads : int
+            The number of threads (technically GIL-avoiding child processes) to
+            use to process multiple distance scales in parallel. Pass -1 to use
+            as many threads as there are CPUs. Pass 0 to process the distance
+            scales serially.
         """
         eprint('estimating dispersion')
         estimator = dispersion.__dict__[estimator] \
@@ -405,15 +410,28 @@ class HiC3DeFDR(object):
             f[chrom_slice] = bias[row_chrom, :] * bias[col_chrom, :] \
                 * size_factors
 
+        def _estimate(raw_slice, f_slice):
+            return np.nan if not raw_slice.size \
+                else estimator(raw_slice, f=f_slice)
+
         disp_per_dist = np.zeros((self.dist_thresh_max+1, self.design.shape[1]))
         disp = np.zeros((disp_idx.sum(), self.design.shape[1]))
         for c, cond in enumerate(self.design.columns):
             eprint('  estimating dispersion for condition %s' % cond)
-            for d in tqdm(range(self.dist_thresh_max+1)):
-                raw_slice = raw[dist == d, :][:, self.design[cond]]
-                f_slice = f[dist == d, :][:, self.design[cond]]
-                disp_per_dist[d, c] = np.nan if not raw_slice.size \
-                    else estimator(raw_slice, f=f_slice)
+            if n_threads:
+                disp_per_dist[:, c] = parallel_map(
+                    _estimate,
+                    [{'raw_slice': raw[dist == d, :][:, self.design[cond]],
+                      'f_slice': f[dist == d, :][:, self.design[cond]]}
+                     for d in range(self.dist_thresh_max+1)],
+                    n_threads=n_threads
+                )
+            else:
+                for d in tqdm(range(self.dist_thresh_max+1)):
+                    raw_slice = raw[dist == d, :][:, self.design[cond]]
+                    f_slice = f[dist == d, :][:, self.design[cond]]
+                    disp_per_dist[d, c] = np.nan if not raw_slice.size \
+                        else estimator(raw_slice, f=f_slice)
             idx = np.isfinite(disp_per_dist[:, c])
             disp_fn = lowess_fit(np.arange(self.dist_thresh_max+1)[idx],
                                  disp_per_dist[:, c][idx], logx=True, logy=True)
@@ -448,7 +466,7 @@ class HiC3DeFDR(object):
         """
         if chrom is None:
             if n_threads:
-                parallel(
+                parallel_apply(
                     self.lrt,
                     [{'chrom': c, 'refit_mu': refit_mu, 'verbose': False}
                      for c in self.chroms],
@@ -552,7 +570,7 @@ class HiC3DeFDR(object):
             Pass False to silence reporting of progress to stderr.
         """
         self.prepare_data(norm=norm, n_bins=n_bins_norm, n_threads=n_threads)
-        self.estimate_disp(estimator=estimator)
+        self.estimate_disp(estimator=estimator, n_threads=n_threads)
         self.lrt(refit_mu=refit_mu, n_threads=n_threads)
         self.bh()
 
@@ -580,7 +598,7 @@ class HiC3DeFDR(object):
         """
         if chrom is None:
             if n_threads:
-                parallel(
+                parallel_apply(
                     self.threshold,
                     [{'chrom': c, 'fdr': fdr, 'cluster_size': cluster_size}
                      for c in self.chroms],
@@ -644,7 +662,7 @@ class HiC3DeFDR(object):
         """
         if chrom is None:
             if n_threads:
-                parallel(
+                parallel_apply(
                     self.classify,
                     [{'chrom': c, 'fdr': fdr, 'cluster_size': cluster_size}
                      for c in self.chroms],
@@ -730,7 +748,7 @@ class HiC3DeFDR(object):
         """
         if chrom is None:
             if n_threads:
-                parallel(
+                parallel_apply(
                     self.simulate,
                     [{'cond': cond, 'chrom': c, 'beta': beta, 'p_diff': p_diff,
                       'skip_bias': skip_bias, 'loop_pattern': loop_pattern,

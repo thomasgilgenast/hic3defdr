@@ -27,8 +27,10 @@ try:
     else:
         from tqdm import tqdm
     tqdm_avail = True
+    import tqdm as tqdm_module
 except ImportError:
     tqdm_avail = False
+    tqdm_module = None
     tqdm = None
 
 

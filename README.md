@@ -213,6 +213,12 @@ truncated to reduce clutter from multiple subprocesses printing to stderr at the
 same time. This truncation is controlled by the `verbose` kwarg which is
 available on some of these parallelized functions.
 
+The function `estimate_disp()` also accepts an `n_threads` kwarg, using it to
+parallelize itself across distance scales.
+
+The function `run_to_qvalues()` passes the `n_threads` kwarg through to all the
+steps it calls.
+
 Intermediates and final output files
 ------------------------------------
 
@@ -296,17 +302,18 @@ and therefore all support the convenience kwargs provided by that decorator
 
 ![](images/ddr.png)
 
-You can also plot the y-axis in units of variance by plotting `yaxis='var'`:
+It's possible to use the the one-dimensional distance dependence curve to
+convert distances to means. Doing so allows plotting the y-axis in terms of
+variance. You can do this by passing `yaxis='var'`:
 
     >>> _ = h.plot_dispersion_fit('ES', yaxis='var', outfile='var.png')
 
 ![](images/dvr.png)
 
-It's possible to use the the one-dimensional distance dependence curve to
-convert distances to means and plot these figures with mean on the x-axis. To do
-this, pass `xaxis='mean'`.
+Using the same trick, you can plot the x-axis in terms of mean by passing
+`xaxis='mean'`:
 
-    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr.png')
+    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', outfile='mvr.png')
 
 ![](images/mvr.png)
 
