@@ -13,7 +13,7 @@ import hic3defdr.dispersion as dispersion
 from hic3defdr.logging import eprint
 from hic3defdr.matrices import sparse_union
 from hic3defdr.clusters import load_clusters, save_clusters
-from hic3defdr.lowess import lowess_fit
+from hic3defdr.lowess import lowess_fit, weighted_lowess_fit
 from hic3defdr.lrt import lrt
 from hic3defdr.thresholding import threshold_and_cluster, size_filter
 from hic3defdr.classification import classify
@@ -371,7 +371,8 @@ class HiC3DeFDR(object):
         self.save_data(scaled, 'scaled', chrom)
         self.save_data(disp_idx, 'disp_idx', chrom)
 
-    def estimate_disp(self, estimator='qcml', n_threads=0):
+    def estimate_disp(self, estimator='qcml', weighted_lowess=True,
+                      n_threads=0):
         """
         Estimates dispersion parameters.
 
@@ -388,10 +389,14 @@ class HiC3DeFDR(object):
             use to process multiple distance scales in parallel. Pass -1 to use
             as many threads as there are CPUs. Pass 0 to process the distance
             scales serially.
+        weighted_lowess : bool
+            Whether or not to use a weighted lowess fit when fitting the
+            smoothed dispersion curve.
         """
         eprint('estimating dispersion')
         estimator = dispersion.__dict__[estimator] \
             if estimator in dispersion.__dict__ else estimator
+        lowess_fn = weighted_lowess_fit if weighted_lowess else lowess_fit
 
         eprint('  loading data')
         disp_idx, disp_idx_offsets = self.load_data('disp_idx', 'all')
@@ -433,8 +438,8 @@ class HiC3DeFDR(object):
                     disp_per_dist[d, c] = np.nan if not raw_slice.size \
                         else estimator(raw_slice, f=f_slice)
             idx = np.isfinite(disp_per_dist[:, c])
-            disp_fn = lowess_fit(np.arange(self.dist_thresh_max+1)[idx],
-                                 disp_per_dist[:, c][idx], logx=True, logy=True)
+            disp_fn = lowess_fn(np.arange(self.dist_thresh_max+1)[idx],
+                                disp_per_dist[:, c][idx])
             disp[:, c] = disp_fn(dist)
             self.save_disp_fn(cond, disp_fn)
 
@@ -528,8 +533,8 @@ class HiC3DeFDR(object):
             offset += len(pvalues[i])
 
     def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=-1,
-                       estimator='qcml', refit_mu=True, n_threads=0,
-                       verbose=True):
+                       estimator='qcml', weighted_lowess=True, refit_mu=True,
+                       n_threads=0, verbose=True):
         """
         Shortcut method to run the analysis to q-values.
 
@@ -556,6 +561,9 @@ class HiC3DeFDR(object):
             estimate the dispersion within each bin. Pass a function that takes
             in a (pixels, replicates) shaped array of data and returns a
             dispersion value to use that instead.
+        weighted_lowess : bool
+            Whether or not to use a weighted lowess fit when fitting the
+            smoothed dispersion curve.
         refit_mu : bool
             Pass True to refit the mean parameters in the NB models being
             compared in the LRT. Pass False to use the means across replicates
@@ -570,7 +578,8 @@ class HiC3DeFDR(object):
             Pass False to silence reporting of progress to stderr.
         """
         self.prepare_data(norm=norm, n_bins=n_bins_norm, n_threads=n_threads)
-        self.estimate_disp(estimator=estimator, n_threads=n_threads)
+        self.estimate_disp(estimator=estimator, weighted_lowess=weighted_lowess,
+                           n_threads=n_threads)
         self.lrt(refit_mu=refit_mu, n_threads=n_threads)
         self.bh()
 

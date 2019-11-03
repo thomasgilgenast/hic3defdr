@@ -34,7 +34,7 @@ def parallel_apply(fn, kwargs_list, n_threads=None):
     if n_threads == -1:
         n_threads = cpu_count()
     pool = Pool(n_threads)
-    result = pool.map(_unpack_for_apply, _pack_for_apply(fn, kwargs_list))
+    pool.map(_unpack_for_apply, _pack_for_apply(fn, kwargs_list))
     pool.close()
     pool.join()
 
