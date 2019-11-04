@@ -43,8 +43,9 @@ def poisson_lrt(raw, f, design, refit_mu=True):
 
 
 class Poisson3DeFDR(HiC3DeFDR):
-    def estimate_disp(self, estimator='cml'):
-        # note: estimator kwarg is ignored
+    def estimate_disp(self, estimator='qcml', weighted_lowess=True,
+                      n_threads=-1):
+        # note: all kwargs are ignored
         eprint('estimating dispersion')
         estimator = dispersion.__dict__[estimator] \
             if estimator in dispersion.__dict__ else estimator
@@ -115,7 +116,9 @@ class Poisson3DeFDR(HiC3DeFDR):
 
 
 class Unsmoothed3DeFDR(HiC3DeFDR):
-    def estimate_disp(self, estimator='cml'):
+    def estimate_disp(self, estimator='qcml', weighted_lowess=True,
+                      n_threads=-1):
+        # note: all kwargs are ignored
         eprint('estimating dispersion')
         eprint('  loading data')
         disp_idx, _ = self.load_data('disp_idx', 'all')
@@ -135,7 +138,9 @@ class Unsmoothed3DeFDR(HiC3DeFDR):
 
 
 class Global3DeFDR(HiC3DeFDR):
-    def estimate_disp(self, estimator='cml'):
+    def estimate_disp(self, estimator='qcml', weighted_lowess=True,
+                      n_threads=-1):
+        # note: all kwargs except estimator are ignored
         eprint('estimating dispersion')
         estimator = dispersion.__dict__[estimator] \
             if estimator in dispersion.__dict__ else estimator
