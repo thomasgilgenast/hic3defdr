@@ -53,7 +53,7 @@ Before we start, we'll seed numpy's random number generator for reproducibility:
     >>> import numpy as np
     >>> np.random.seed(42)
 
-To analyze the ES_1, ES_3, NPC_2, and NPC_4 reps of the dataset dataset from
+To analyze the ES_1, ES_3, NPC_1, and NPC_2 reps of the dataset dataset from
 [Bonev et al. 2017](https://www.ncbi.nlm.nih.gov/pubmed/29053968) with default
 parameters, we would first describe the dataset in terms of replicate names,
 chromosome names, and a design matrix. We will just analyze chromosomes 18 and
@@ -61,7 +61,7 @@ chromosome names, and a design matrix. We will just analyze chromosomes 18 and
 
     >>> import pandas as pd
     >>>
-    >>> repnames = ['ES_1', 'ES_3', 'NPC_2', 'NPC_4']
+    >>> repnames = ['ES_1', 'ES_3', 'NPC_1', 'NPC_2']
     >>> #chroms = ['chr%i' % i for i in range(1, 20)] + ['chrX']
     >>> chroms = ['chr18', 'chr19']
     >>> design = pd.DataFrame({'ES': [1, 1, 0, 0], 'NPC': [0, 0, 1, 1]},
@@ -70,7 +70,7 @@ chromosome names, and a design matrix. We will just analyze chromosomes 18 and
 If you're following along, you can download the data like this:
 
     $ mkdir -p ~/data/bonev
-    $ wget -qO- -O tmp.zip https://www.dropbox.com/sh/hvoyhjc00m24o6m/AAAci5qaxsn7o9W-gToAeBiza?dl=1 && unzip tmp.zip -x / -d ~/data/bonev && rm tmp.zip
+    $ wget -qO- -O tmp.zip https://www.dropbox.com/sh/mq0fpnp4jz59wpo/AAD2FW1Tp_mVKCkxlJoZvxC8a?dl=1 && unzip tmp.zip -x / -d ~/data/bonev && rm tmp.zip
 
 The required input files consist of:
 
@@ -298,7 +298,7 @@ and therefore all support the convenience kwargs provided by that decorator
 
 ### Dispersion fitting
 
-    >>> _ = h.plot_dispersion_fit('ES', outfile='ddr.png')
+    >>> _ = h.plot_dispersion_fit('NPC', outfile='ddr.png')
 
 ![](images/ddr.png)
 
@@ -306,14 +306,14 @@ It's possible to use the the one-dimensional distance dependence curve to
 convert distances to means. Doing so allows plotting the y-axis in terms of
 variance. You can do this by passing `yaxis='var'`:
 
-    >>> _ = h.plot_dispersion_fit('ES', yaxis='var', outfile='var.png')
+    >>> _ = h.plot_dispersion_fit('NPC', yaxis='var', outfile='var.png')
 
 ![](images/dvr.png)
 
 Using the same trick, you can plot the x-axis in terms of mean by passing
 `xaxis='mean'`:
 
-    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', outfile='mvr.png')
+    >>> _ = h.plot_dispersion_fit('NPC', xaxis='mean', yaxis='var', outfile='mvr.png')
 
 ![](images/mvr.png)
 
@@ -324,7 +324,7 @@ It's also possible to show the dispersion fitted at just one distance scale,
 overlaying the sample mean and sample variance across replicates for each pixel
 as a blue hexbin plot:
 
-    >>> _ = h.plot_dispersion_fit('ES', distance=25, hexbin=True, xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr_25.png')
+    >>> _ = h.plot_dispersion_fit('NPC', distance=25, hexbin=True, xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr_25.png')
 
 ![](images/mvr_25.png)
 
@@ -408,25 +408,25 @@ generate simulations of differential looping.
 
 ### Generating simulations
 
-To create an ES-based simulation over all chromosomes listed in `h.chroms`, we
+To create an NPC-based simulation over all chromosomes listed in `h.chroms`, we
 run
 
     >>> from hic3defdr import HiC3DeFDR
     >>>
     >>> h = HiC3DeFDR.load('output')
-    >>> h.simulate('ES')
+    >>> h.simulate('NPC')
     creating directory sim
 
 If we passed `trend='dist'` to `h.estimate_disp()`, we need to pass it to
 `h.simulate()` as well to ensure that the simulation function knows to treat the
 previously-fitted dispersion function as a function of distance.
 
-This takes the mean of the real scaled data across the ES replicates and
-perturbs the loops specified in `h.loop_patterns['ES']` up or down at random to
+This takes the mean of the real scaled data across the NPC replicates and
+perturbs the loops specified in `h.loop_patterns['NPC']` up or down at random to
 generate two new conditions called "A" and "B". The scaled mean matrices for
 these conditions are then biased and scaled by the bias vectors and size factors
-taken from the real experimental replicates, and the ES dispersion function
-fitted to the real ES data is applied to the biased and scaled means to obtain
+taken from the real experimental replicates, and the NPC dispersion function
+fitted to the real NPC data is applied to the biased and scaled means to obtain
 dispersion values. These means and dispersions are used to draw an NB random
 variable for each pixel of each simulated replicate. The number of replicates in
 each of the simulated conditions "A" and "B" will match the design of the real
@@ -439,7 +439,7 @@ as `design.csv`.
 
 The true labels used to perturb the loops will also be written to disk as
 `labels_<chrom>.txt`. This file contains as many lines as there are clusters in
-`h.loop_patterns['ES']`, with the `i`th line providing the label for the `i`th
+`h.loop_patterns['NPC']`, with the `i`th line providing the label for the `i`th
 cluster. This file can be loaded with `np.loadtxt(..., dtype='|S7')`.
 
 ### Evaluating simulations
@@ -498,15 +498,15 @@ analysis through to q-values:
     ...     chroms=chroms,
     ...     design=sim_path + 'design.csv',
     ...     outdir='output-sim',
-    ...     loop_patterns={'ES': base_path + 'clusters/ES_<chrom>_clusters.json'}
+    ...     loop_patterns={'NPC': base_path + 'clusters/NPC_<chrom>_clusters.json'}
     ... )
     creating directory output-sim
     >>> h_sim.run_to_qvalues()
 
 Next, we can evaluate the simulation against the clusters in
-`h_sim.loop_patterns['ES']` with true labels from `sim/labels_<chrom>.txt`:
+`h_sim.loop_patterns['NPC']` with true labels from `sim/labels_<chrom>.txt`:
 
-    >>> h_sim.evaluate('ES', 'sim/labels_<chrom>.txt')
+    >>> h_sim.evaluate('NPC', 'sim/labels_<chrom>.txt')
 
 This writes a file in `h_sim`'s output directory called `eval.npz`. This file
 can be loaded with `np.load()` and has four keys whose values are all one
