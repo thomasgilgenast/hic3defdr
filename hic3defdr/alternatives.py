@@ -10,7 +10,7 @@ from hic3defdr import HiC3DeFDR
 from hic3defdr.logging import eprint
 from hic3defdr.dispersion import mme_per_pixel
 from hic3defdr.clusters import load_clusters
-from hic3defdr.parallelization import parallel
+from hic3defdr.parallelization import parallel_apply
 import hic3defdr.dispersion as dispersion
 
 
@@ -72,7 +72,7 @@ class Poisson3DeFDR(HiC3DeFDR):
     def lrt(self, chrom=None, refit_mu=True, n_threads=0, verbose=True):
         if chrom is None:
             if n_threads:
-                parallel(
+                parallel_apply(
                     self.lrt,
                     [{'chrom': c, 'refit_mu': refit_mu, 'verbose': False}
                      for c in self.chroms],
