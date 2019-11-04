@@ -267,7 +267,7 @@ class HiC3DeFDR(object):
             return pickle.dump(disp_fn, handle, -1)
 
     def prepare_data(self, chrom=None, norm='conditional_mor', n_bins=-1,
-                     n_threads=0, verbose=True):
+                     n_threads=-1, verbose=True):
         """
         Prepares raw and normalized data for analysis.
 
@@ -372,7 +372,7 @@ class HiC3DeFDR(object):
         self.save_data(disp_idx, 'disp_idx', chrom)
 
     def estimate_disp(self, estimator='qcml', weighted_lowess=True,
-                      n_threads=0):
+                      n_threads=-1):
         """
         Estimates dispersion parameters.
 
@@ -447,7 +447,7 @@ class HiC3DeFDR(object):
         self.save_data(disp, 'disp', offsets)
         self.save_data(disp_per_dist, 'disp_per_dist')
 
-    def lrt(self, chrom=None, refit_mu=True, n_threads=0, verbose=True):
+    def lrt(self, chrom=None, refit_mu=True, n_threads=-1, verbose=True):
         """
         Runs the likelihood ratio test to test for differential interactions.
 
@@ -534,7 +534,7 @@ class HiC3DeFDR(object):
 
     def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=-1,
                        estimator='qcml', weighted_lowess=True, refit_mu=True,
-                       n_threads=0, verbose=True):
+                       n_threads=-1, verbose=True):
         """
         Shortcut method to run the analysis to q-values.
 
@@ -583,7 +583,7 @@ class HiC3DeFDR(object):
         self.lrt(refit_mu=refit_mu, n_threads=n_threads)
         self.bh()
 
-    def threshold(self, chrom=None, fdr=0.05, cluster_size=3, n_threads=0):
+    def threshold(self, chrom=None, fdr=0.05, cluster_size=3, n_threads=-1):
         """
         Thresholds and clusters significantly differential pixels.
 
@@ -645,7 +645,7 @@ class HiC3DeFDR(object):
                               '%s/insig_%g_%i_%s.json' %
                               (self.outdir, f, s, chrom))
 
-    def classify(self, chrom=None, fdr=0.05, cluster_size=3, n_threads=0):
+    def classify(self, chrom=None, fdr=0.05, cluster_size=3, n_threads=-1):
         """
         Classifies significantly differential pixels according to which
         condition they are strongest in.
@@ -715,7 +715,7 @@ class HiC3DeFDR(object):
                            (self.outdir, self.design.columns[i], f, s, chrom))
 
     def simulate(self, cond, chrom=None, beta=0.5, p_diff=0.4, skip_bias=False,
-                 loop_pattern=None, outdir='sim', n_threads=0, verbose=True):
+                 loop_pattern=None, outdir='sim', n_threads=-1, verbose=True):
         """
         Simulates raw contact matrices based on previously fitted scaled means
         and dispersions in a specific condition.

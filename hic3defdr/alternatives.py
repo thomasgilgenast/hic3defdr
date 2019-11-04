@@ -69,7 +69,7 @@ class Poisson3DeFDR(HiC3DeFDR):
         self.save_data(disp, 'disp', offsets)
         self.save_data(disp_per_dist, 'disp_per_dist')
 
-    def lrt(self, chrom=None, refit_mu=True, n_threads=0, verbose=True):
+    def lrt(self, chrom=None, refit_mu=True, n_threads=-1, verbose=True):
         if chrom is None:
             if n_threads:
                 parallel_apply(

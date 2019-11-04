@@ -76,8 +76,9 @@ def lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
             new_x = np.log(x_star)
         else:
             new_x = x_star
-        y_hat = interp1d(sorted_x, sorted_y_hat, fill_value='extrapolate',
-                         assume_sorted=True)(new_x)
+        _, idx = np.unique(sorted_x, return_index=True)
+        y_hat = interp1d(sorted_x[idx], sorted_y_hat[idx],
+                         fill_value='extrapolate', assume_sorted=True)(new_x)
         if left_boundary is not None:
             y_hat[x_star <= left_boundary] = sorted_y_hat[0]
         if right_boundary is not None:
@@ -142,7 +143,7 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
     i = np.arange(n)
 
     # compute rolling var
-    var = pd.Series(y).rolling(window=w, center=True).var()
+    var = pd.Series(y).rolling(window=w, center=True).var().values
 
     # convert to precision
     prec = 1 / var
