@@ -97,31 +97,44 @@ def fit_mu_hat(x, b, alpha, verbose=True):
     >>> import numpy as np
     >>> from hic3defdr.scaled_nb import fit_mu_hat
 
-    2 pixels, 2 reps (matrices):
+    3 pixels, 2 reps (matrices):
     >>> x = np.array([[1, 2],
-    ...               [3, 4]])
+    ...               [3, 4],
+    ...               [5, 6]])
     >>> b = np.array([[0.9, 1.1],
-    ...               [0.8, 1.2]])
+    ...               [0.8, 1.2],
+    ...               [0.7, 1.3]])
     >>> alpha = np.array([[0.1, 0.2],
-    ...                   [0.3, 0.4]])
+    ...                   [0.3, 0.4],
+    ...                   [0.5, 0.6]])
     >>> fit_mu_hat(x, b, alpha)
-    array([1.47251127, 3.53879843])
+    array([1.47251127, 3.53879843, 5.86853465])
 
     broadcast dispersion down the pixels:
     >>> fit_mu_hat(x, b, np.array([0.1, 0.2]))
-    array([1.47251127, 3.53749833])
+    array([1.47251127, 3.53749833, 5.85554075])
 
     broadcast dispersion across the reps:
-    >>> fit_mu_hat(x, b, np.array([0.1, 0.2])[:, None])
-    array([1.49544092, 3.51679438])
+    >>> fit_mu_hat(x, b, np.array([0.1, 0.2, 0.3])[:, None])
+    array([1.49544092, 3.51679438, 5.73129492])
 
-    2 pixels, one rep (vectors):
+    1 pixel, two reps (vectors):
     >>> fit_mu_hat(np.array([1, 2]), np.array([0.9, 1.1]), np.array([0.1, 0.2]))
     array([1.47251127])
 
-    broadcast dispersion across pixels:
+    broadcast dispersion across reps:
     >>> fit_mu_hat(np.array([1, 2]), np.array([0.9, 1.1]), 0.1)
     array([1.49544092])
+
+    one pixel is fitted with newton, the second is fitted with brentq
+    >>> x = np.array([[2, 3, 4, 2],
+    ...               [6, 9, 3, 1]])
+    >>> b = np.array([[0.45, 0.53, 0.088, 0.091],
+    ...               [0.70, 0.83, 0.14,  0.15 ]])
+    >>> alpha = np.array([[0.0071, 0.0071, 0.0073, 0.0073],
+    ...                   [0.0070, 0.0070, 0.0072, 0.0072]])
+    >>> fit_mu_hat(x, b, alpha)
+    array([ 9.5900971 , 10.45962955])
     """
     assert np.all((alpha > 0) & np.isfinite(alpha))
     assert np.all((x >= 0) & np.isfinite(x))
@@ -156,7 +169,9 @@ def fit_mu_hat(x, b, alpha, verbose=True):
             counter = 0
             while True:
                 try:
-                    root[idx] = brentq(f, lower, upper)
+                    root[idx] = brentq(
+                        f if np.isscalar(f(lower)) else lambda y: f(y)[idx],
+                        lower, upper)
                     break
                 except ValueError:
                     upper *= 2
