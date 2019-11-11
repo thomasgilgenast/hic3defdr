@@ -91,15 +91,17 @@ def lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
 
 
 def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
-                        right_boundary=None, frac=0.2, delta=0.01, w=20):
+                        right_boundary=None, frac=0.2, delta=0.01, w=20,
+                        power=1./4):
     """
     Performs lowess fitting as in ``lowess_fit()``, but weighting the data
     points automatically according to the precision in the ``y`` values as
     estimated by a rolling window sample variance.
 
-    Points are weighted proportionally to their precision by adding duplicated
-    points to the dataset. This should approximate the effects of a true
-    weighted lowess fit, with the caveat that the weights are rounded a bit.
+    Points are weighted proportionally to a specified power ``power`` of their
+    precision by adding duplicated points to the dataset. This should
+    approximate the effects of a true weighted lowess fit, with the caveat that
+    the weights are rounded a bit.
 
     Weighting the data points according to this rolling window sample variance
     is probably only a good idea if the marginal distribution of ``x`` values is
@@ -128,6 +130,8 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
     w : int
         The size of the rolling window to use when estimating the precision of
         the y values.
+    power : float
+        Precisions will be taken to this power to obtain unscaled weights.
 
     Returns
     -------
@@ -148,27 +152,30 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
     # convert to precision
     prec = 1 / var
 
-    # scale to make smallest precision 1
-    min_prec = np.nanmin(prec)
-    scaled_prec = prec * (1 / min_prec)
+    # apply power to obtain weights
+    weight = np.power(prec, power)
+
+    # scale to make smallest weight 1
+    min_weight = np.nanmin(weight)
+    scaled_weight = weight * (1 / min_weight)
 
     # fill left and right side nan's
     # get the first non-nan precision (for filling left side)
-    max_prec = scaled_prec[np.argmax(np.isfinite(scaled_prec))]
-    max_fill_idx = np.isnan(scaled_prec) & (i < n/2)
-    min_fill_idx = np.isnan(scaled_prec) & (i > n/2)
-    scaled_prec[max_fill_idx] = max_prec
+    max_weight = scaled_weight[np.argmax(np.isfinite(scaled_weight))]
+    max_fill_idx = np.isnan(scaled_weight) & (i < n/2)
+    min_fill_idx = np.isnan(scaled_weight) & (i > n/2)
+    scaled_weight[max_fill_idx] = max_weight
     # fill right side with 1s
-    scaled_prec[min_fill_idx] = 1
+    scaled_weight[min_fill_idx] = 1
 
     # floor and convert to int
-    floored_prec = np.floor(scaled_prec).astype(int)
+    floored_weight = np.floor(scaled_weight).astype(int)
 
     # create duplicated data
     expanded_xs = []
     expanded_ys = []
     for i in range(n):
-        m = floored_prec[i]
+        m = floored_weight[i]
         if not np.isfinite(m):
             continue
         expanded_xs.extend([x[i]] * m)
