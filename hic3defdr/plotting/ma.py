@@ -139,14 +139,16 @@ def plot_ma(data, sig_idx, loop_idx=None, names=None, s=-1, nonloop_s=None,
                color=colors[1], label=labels[1], **scatter_kwargs)
     update_lim()
     # differential pixels
-    scatter_fn(a[loop_idx][sig_idx][m[loop_idx][sig_idx] > 0],
-               m[loop_idx][sig_idx][m[loop_idx][sig_idx] > 0],
-               color=colors[2], label=labels[2], **scatter_kwargs)
-    update_lim()
-    scatter_fn(a[loop_idx][sig_idx][m[loop_idx][sig_idx] < 0],
-               m[loop_idx][sig_idx][m[loop_idx][sig_idx] < 0],
-               color=colors[3], label=labels[3], **scatter_kwargs)
-    update_lim()
+    if np.any(m[loop_idx][sig_idx] > 0):
+        scatter_fn(a[loop_idx][sig_idx][m[loop_idx][sig_idx] > 0],
+                   m[loop_idx][sig_idx][m[loop_idx][sig_idx] > 0],
+                   color=colors[2], label=labels[2], **scatter_kwargs)
+        update_lim()
+    if np.any(m[loop_idx][sig_idx] < 0):
+        scatter_fn(a[loop_idx][sig_idx][m[loop_idx][sig_idx] < 0],
+                   m[loop_idx][sig_idx][m[loop_idx][sig_idx] < 0],
+                   color=colors[3], label=labels[3], **scatter_kwargs)
+        update_lim()
 
     # cleanup
     if s == -1 or nonloop_s == -1:
