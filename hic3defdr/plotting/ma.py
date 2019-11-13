@@ -1,5 +1,5 @@
 import numpy as np
-import mpl_scatter_density
+import mpl_scatter_density  # noqa, side-effect on import
 import matplotlib.pyplot as plt
 from matplotlib.colors import SymLogNorm
 from matplotlib.lines import Line2D
