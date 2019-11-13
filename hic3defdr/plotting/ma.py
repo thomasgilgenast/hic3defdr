@@ -79,7 +79,7 @@ def plot_ma(data, sig_idx, loop_idx=None, names=None, s=-1, nonloop_s=None,
         else:
             ax = plt.gca()
     else:
-        if (s == -1 or nonloop_s == -1) and not ax.hasattr('scatter_density'):
+        if (s == -1 or nonloop_s == -1) and not hasattr(ax, 'scatter_density'):
             raise ValueError('ax passed to plot_ma() was not created with '
                              '`projection=\'scatter_density\'`')
 
