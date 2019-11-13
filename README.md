@@ -349,11 +349,9 @@ loops, pass `idx='loop'`.
 
 ### MA plot
 
-    >>> _ = h.plot_ma(legend=True, outfile='ma.png')
+    >>> _ = h.plot_ma(outfile='ma.png')
 
 ![](images/ma.png)
-
-To include non-loop pixels, pass `include_non_loops=True`.
 
 ### Pixel detail grid
 

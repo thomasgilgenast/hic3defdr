@@ -1118,8 +1118,9 @@ class HiC3DeFDR(object):
         # plot
         return plot_pvalue_histogram(qvalues, xlabel='qvalue', **kwargs)
 
-    def plot_ma(self, fdr=0.05, conds=None, include_non_loops=False, s=1,
-                **kwargs):
+    def plot_ma(self, fdr=0.05, conds=None, include_non_loops=True, s=-1,
+                nonloop_s=None, density_dpi=72, vmax=None, nonloop_vmax=None,
+                ax=None, legend=True, **kwargs):
         """
         Plots an MA plot for a given chromosome.
 
@@ -1134,7 +1135,25 @@ class HiC3DeFDR(object):
         include_non_loops : bool
             Whether or not to include non-looping pixels in the MA plot.
         s : float
-            The marker size to use for the scatterplot.
+            The marker size to use for the scatterplot, or -1 to use a
+            scatter density plot.
+        nonloop_s : float, optional
+            Pass a separate marker size to use specifically for the non-loop
+            pixels if `include_non_loops` is True. Useful for drawing just the
+            non-loop pixels as a density by passing `s=1, nonloop_s=-1`. Pass
+            None to use `s` as the size for both loop and non-loop pixels.
+        density_dpi : int
+            If `s` or `nonloop_s` are -1 this specifies the DPI to use for the
+            density grid.
+        vmax, nonloop_vmax : float, optional
+            The vmax to use for `ax.scatter_density()` if `s` or `nonloop_s` is
+            -1, respectively. Pass None to choose values automatically.
+        ax : pyplot axis
+            The axis to plot to. Must have been created with
+            `projection='scatter_density'`. Pass None to create a new axis.
+        legend : bool
+            Pass True to add a legend. Note that passing `legend='outside'` is
+            not supported.
         kwargs : kwargs
             Typical plotter kwargs.
 
@@ -1161,12 +1180,21 @@ class HiC3DeFDR(object):
         # prepare sig_idx
         sig_idx = qvalues < fdr
 
+        # stuff common kwargs into kwargs
+        kwargs['names'] = conds
+        kwargs['s'] = s
+        kwargs['nonloop_s'] = nonloop_s
+        kwargs['density_dpi'] = density_dpi
+        kwargs['vmax'] = vmax
+        kwargs['nonloop_vmax'] = vmax
+        kwargs['ax'] = ax
+        kwargs['legend'] = legend
+
         # plot
         if include_non_loops:
-            plot_ma(mean, sig_idx, loop_idx=loop_idx, names=conds, s=s,
-                    **kwargs)
+            plot_ma(mean, sig_idx, loop_idx=loop_idx, **kwargs)
         else:
-            plot_ma(mean[loop_idx], sig_idx, names=conds, s=s, **kwargs)
+            plot_ma(mean[loop_idx], sig_idx, **kwargs)
 
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=3,
                   fdr_vmid=0.05,

@@ -31,6 +31,7 @@ setup(
         'numpy>=1.14.0',
         'scipy>=1.2.0',
         'matplotlib>=2.1.1',
+        'mpl_scatter_density>=0.6',
         'seaborn>=0.8.0',
         'pandas>=0.21.0',
         'lib5c>=0.5.3',
