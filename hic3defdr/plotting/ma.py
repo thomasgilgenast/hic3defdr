@@ -84,11 +84,15 @@ def plot_ma(data, sig_idx, loop_idx=None, names=None, s=-1, nonloop_s=None,
                              '`projection=\'scatter_density\'`')
 
     # resolve vmax and create normalization objects
-    vmax = loop_idx.sum()/1000. if not vmax else vmax
-    nonloop_vmax = (len(loop_idx)-loop_idx.sum())/1000. \
-        if not nonloop_vmax else nonloop_vmax
+    vmax = len(sig_idx)/1000. if not vmax else vmax
     norm = SymLogNorm(1., vmin=0, vmax=vmax)
-    nonloop_norm = SymLogNorm(1., vmin=0, vmax=nonloop_vmax)
+    if loop_idx is None:
+        nonloop_vmax = None
+        nonloop_norm = None
+    else:
+        nonloop_vmax = (len(loop_idx)-len(sig_idx))/1000. \
+            if not nonloop_vmax else nonloop_vmax
+        nonloop_norm = SymLogNorm(1., vmin=0, vmax=nonloop_vmax)
 
     # resolve scatter_fn and scatter_kwargs
     scatter_fn = ax.scatter_density if s == -1 else ax.scatter
