@@ -146,17 +146,28 @@ class Global3DeFDR(HiC3DeFDR):
             if estimator in dispersion.__dict__ else estimator
 
         eprint('  loading data')
-        disp_idx, _ = self.load_data('disp_idx', 'all')
+        disp_idx, disp_idx_offsets = self.load_data('disp_idx', 'all')
+        loop_idx, _ = self.load_data('loop_idx', 'all')
         row, offsets = self.load_data('row', 'all', idx=disp_idx)
         col, _ = self.load_data('col', 'all', idx=disp_idx)
-        scaled, _ = self.load_data('scaled', 'all', idx=disp_idx)
+        raw, _ = self.load_data('raw', 'all', idx=disp_idx)
+        f = np.ones_like(raw, dtype=float)
+        for i, chrom in enumerate(self.chroms):
+            chrom_slice = slice(offsets[i], offsets[i+1])
+            row_chrom = row[chrom_slice]
+            col_chrom = col[chrom_slice]
+            disp_idx_chrom = disp_idx[disp_idx_offsets[i]:disp_idx_offsets[i+1]]
+            bias = self.load_bias(chrom)
+            size_factors = self.load_data('size_factors', chrom)[disp_idx_chrom]
+            f[chrom_slice] = bias[row_chrom, :] * bias[col_chrom, :] \
+                * size_factors
 
-        eprint('  computing pixel-wise mean per condition')
         disp = np.zeros((disp_idx.sum(), self.design.shape[1]))
         disp_per_dist = np.zeros((self.dist_thresh_max+1, self.design.shape[1]))
         for c, cond in enumerate(self.design.columns):
             eprint('  estimating dispersion for condition %s' % cond)
-            global_disp = estimator(scaled[:, self.design[cond]])
+            global_disp = estimator(raw[loop_idx, :][:, self.design[cond]],
+                                    f=f[loop_idx, :][:, self.design[cond]])
             disp[:, c] = global_disp
             disp_per_dist[:, c] = global_disp
 
