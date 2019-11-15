@@ -41,7 +41,7 @@ def make_y_true(row, col, clusters, labels):
                      for r, c in zip(row, col)])
 
 
-def evaluate(y_true, qvalues):
+def evaluate(y_true, qvalues, n_fdr_points=100):
     """
     Evaluates how good a vector of q-values (or p-values) is at predicting the
     vector of true labels.
@@ -53,6 +53,11 @@ def evaluate(y_true, qvalues):
     qvalues : np.ndarray
         Vector of q-values or p-values which are supposed to predict the boolean
         label in ``y_true``.
+    n_fdr_points : int
+        The maximum number of points at which to compute FDR. The FDR
+        computation is not parallelized so increasing this number will slow down
+        the evaluation. The default value of 100 should be sufficient to
+        visualize the FDR control curve.
 
     Returns
     -------
@@ -68,8 +73,9 @@ def evaluate(y_true, qvalues):
     y_pred = 1 - qvalues
     fpr, tpr, thresh = roc_curve(y_true, y_pred)
     fdr = np.ones_like(fpr) * np.nan
-    for i in tqdm(range(1, len(thresh), max(len(thresh)/100, 1))):
-        fdr[i] = compute_fdr(y_true, y_pred > thresh[i])
+    for i in tqdm(range(np.argmax(tpr > 0), len(thresh),
+                        max(len(thresh)/n_fdr_points, 1))):
+        fdr[i] = compute_fdr(y_true, y_pred >= thresh[i])
     return fdr, fpr, tpr, thresh
 
 
