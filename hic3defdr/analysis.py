@@ -755,9 +755,12 @@ class HiC3DeFDR(object):
             The effect size of the loop perturbations to use when simulating.
             Perturbed loops will be strengthened or weakened by this fraction of
             their original strength.
-        p_diff : float
-            This fraction of loops will be perturbed across the simulated
-            conditions. The remainder will be constitutive.
+        p_diff : float or list of float
+            Pass a single float to specify the probability that a loop will be
+            perturbed across the simulated conditions. Pass four floats to
+            specify the probabilities of all four specific perturbations: up in
+            A, down in A, up in B, down in B. The remaining loops will be
+            constitutive.
         skip_bias : bool
             Pass True to set all bias factors and size factors to 1,
             effectively simulating "unbiased" raw data.
