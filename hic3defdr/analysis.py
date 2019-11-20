@@ -371,8 +371,8 @@ class HiC3DeFDR(object):
         self.save_data(scaled, 'scaled', chrom)
         self.save_data(disp_idx, 'disp_idx', chrom)
 
-    def estimate_disp(self, estimator='qcml', weighted_lowess=True,
-                      n_threads=-1):
+    def estimate_disp(self, estimator='qcml', frac=None, auto_frac_factor=15.,
+                      weighted_lowess=True, n_threads=-1):
         """
         Estimates dispersion parameters.
 
@@ -384,14 +384,20 @@ class HiC3DeFDR(object):
             (MME) to estimate the dispersion within each bin. Pass a function
             that takes in a (pixels, replicates) shaped array of data and
             returns a dispersion value to use that instead.
+        frac : float, optional
+            The lowess smoothing fraction to use when fitting the distance vs
+            dispersion trend. Pass None to choose a value automatically.
+        auto_frac_factor : float
+            When ``frac`` is None, this factor scales the automatically
+            determined fraction parameter.
+        weighted_lowess : bool
+            Whether or not to use a weighted lowess fit when fitting the
+            smoothed dispersion curve.
         n_threads : int
             The number of threads (technically GIL-avoiding child processes) to
             use to process multiple distance scales in parallel. Pass -1 to use
             as many threads as there are CPUs. Pass 0 to process the distance
             scales serially.
-        weighted_lowess : bool
-            Whether or not to use a weighted lowess fit when fitting the
-            smoothed dispersion curve.
         """
         eprint('estimating dispersion')
         estimator = dispersion.__dict__[estimator] \
@@ -437,9 +443,17 @@ class HiC3DeFDR(object):
                     f_slice = f[dist == d, :][:, self.design[cond]]
                     disp_per_dist[d, c] = np.nan if not raw_slice.size \
                         else estimator(raw_slice, f=f_slice)
+
+            eprint('  fitting distance vs dispersion relationship')
             idx = np.isfinite(disp_per_dist[:, c])
-            disp_fn = lowess_fn(np.arange(self.dist_thresh_max+1)[idx],
-                                disp_per_dist[:, c][idx])
+            x = np.arange(self.dist_thresh_max+1)[idx]
+            y = disp_per_dist[:, c][idx]
+            lowess_kwargs = {'left_boundary': y[0]}
+            if frac is not None:
+                lowess_kwargs['frac'] = frac
+            if weighted_lowess:
+                lowess_kwargs['auto_frac_factor'] = auto_frac_factor
+            disp_fn = lowess_fn(x, y, **lowess_kwargs)
             disp[:, c] = disp_fn(dist)
             self.save_disp_fn(cond, disp_fn)
 
@@ -533,8 +547,9 @@ class HiC3DeFDR(object):
             offset += len(pvalues[i])
 
     def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=-1,
-                       estimator='qcml', weighted_lowess=True, refit_mu=True,
-                       n_threads=-1, verbose=True):
+                       estimator='qcml', frac=None, auto_frac_factor=15.,
+                       weighted_lowess=True, refit_mu=True, n_threads=-1,
+                       verbose=True):
         """
         Shortcut method to run the analysis to q-values.
 
@@ -561,6 +576,12 @@ class HiC3DeFDR(object):
             estimate the dispersion within each bin. Pass a function that takes
             in a (pixels, replicates) shaped array of data and returns a
             dispersion value to use that instead.
+        frac : float, optional
+            The lowess smoothing fraction to use when fitting the distance vs
+            dispersion trend. Pass None to choose a value automatically.
+        auto_frac_factor : float
+            When ``frac`` is None, this factor scales the automatically
+            determined fraction parameter.
         weighted_lowess : bool
             Whether or not to use a weighted lowess fit when fitting the
             smoothed dispersion curve.
@@ -578,8 +599,9 @@ class HiC3DeFDR(object):
             Pass False to silence reporting of progress to stderr.
         """
         self.prepare_data(norm=norm, n_bins=n_bins_norm, n_threads=n_threads)
-        self.estimate_disp(estimator=estimator, weighted_lowess=weighted_lowess,
-                           n_threads=n_threads)
+        self.estimate_disp(
+            estimator=estimator, frac=frac, auto_frac_factor=auto_frac_factor,
+            weighted_lowess=weighted_lowess, n_threads=n_threads)
         self.lrt(refit_mu=refit_mu, n_threads=n_threads)
         self.bh()
 

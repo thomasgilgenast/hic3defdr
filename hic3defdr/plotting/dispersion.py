@@ -285,7 +285,7 @@ def plot_ddr(dist_per_bin, disp_per_bin, disp_fn, scatter_size=36, legend=True,
     """
     xmin = dist_per_bin.min()
     xmax = dist_per_bin.max()
-    xs = np.linspace(xmin, xmax, 100)
+    xs = np.arange(xmin, xmax + 1)
     ys = disp_fn(xs)
     plt.scatter(dist_per_bin, disp_per_bin, label=r'$\hat{\alpha}$ per bin',
                 color='C1', s=scatter_size)

@@ -4,6 +4,8 @@ from scipy.interpolate import interp1d
 
 from lib5c.util.lowess import lowess
 
+from hic3defdr.logging import eprint
+
 
 def lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
                right_boundary=None, frac=0.3, delta=0.01):
@@ -91,8 +93,9 @@ def lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
 
 
 def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
-                        right_boundary=None, frac=0.2, delta=0.01, w=20,
-                        power=1./4):
+                        right_boundary=None, frac=None, auto_frac_factor=15.,
+                        delta=0.01, w=20, power=1./4,
+                        interpolate_before_increase=True):
     """
     Performs lowess fitting as in ``lowess_fit()``, but weighting the data
     points automatically according to the precision in the ``y`` values as
@@ -121,8 +124,13 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
         set) for all points which are left or right of the specified left or
         right boundary point, respectively. Pass None to use linear
         extrapolation for these points instead.
-    frac : float
-        The lowess smoothing fraction to use.
+    frac : float, optional
+        The lowess smoothing fraction to use. Pass None to use the default:
+        ``auto_frac_factor`` divided by the product of the average of the
+        unscaled weights and the largest scaled weight.
+    auto_frac_factor : float
+        When ``frac`` is None, this factor scales the automatically determined
+        fraction parameter.
     delta : float
         Distance (on the scale of ``x`` or ``log(x)``) within which to use
         linear interpolation when constructing the initial fit, expressed as a
@@ -132,6 +140,18 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
         the y values.
     power : float
         Precisions will be taken to this power to obtain unscaled weights.
+    interpolate_before_increase : bool
+        Hacky flag introduced to handle quirk of Hi-C dispersion vs distance
+        relationships in which dispersion is elevated at extremely short
+        distances. When True, this function will identify a group of points with
+        the lowest x-values across which the y-value is monotonically
+        decreasing. These points will be included in the variance estimation,
+        but will be excluded from lowess fitting. Linear interpolation will be
+        used at these x-values instead, since it is hard to convince lowess to
+        follow a sharp change in the trend that is only supported by 3-4 data
+        points out of 200-500 total data points, even with our best attempts at
+        weighting. Pass False to perform a simple weighted lowess fit with no
+        linear interpolation.
 
     Returns
     -------
@@ -145,6 +165,9 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
     """
     n = len(y)
     i = np.arange(n)
+    sort_idx = np.argsort(x)
+    x = x[sort_idx].copy()
+    y = y[sort_idx].copy()
 
     # compute rolling var
     var = pd.Series(y).rolling(window=w, center=True).var().values
@@ -159,30 +182,60 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
     min_weight = np.nanmin(weight)
     scaled_weight = weight * (1 / min_weight)
 
+    # clip "infinite weight" points to the max weight
+    max_weight = np.nanmax(scaled_weight)
+    scaled_weight[np.isinf(scaled_weight)] = max_weight
+
     # fill left and right side nan's
     # get the first non-nan precision (for filling left side)
-    max_weight = scaled_weight[np.argmax(np.isfinite(scaled_weight))]
-    max_fill_idx = np.isnan(scaled_weight) & (i < n/2)
-    min_fill_idx = np.isnan(scaled_weight) & (i > n/2)
-    scaled_weight[max_fill_idx] = max_weight
+    left_weight = scaled_weight[np.argmax(np.isfinite(scaled_weight))]
+    left_fill_idx = np.isnan(scaled_weight) & (i < n/2)
+    right_fill_idx = np.isnan(scaled_weight) & (i > n/2)
+    scaled_weight[left_fill_idx] = left_weight
     # fill right side with 1s
-    scaled_weight[min_fill_idx] = 1
+    scaled_weight[right_fill_idx] = 1
+    assert np.all(np.isfinite(scaled_weight))
 
     # floor and convert to int
     floored_weight = np.floor(scaled_weight).astype(int)
 
+    # find index of first increase
+    inc_idx = np.argmax(np.diff(y) > 0) + 1 if interpolate_before_increase \
+        else 0
+
     # create duplicated data
     expanded_xs = []
     expanded_ys = []
-    for i in range(n):
+    for i in range(inc_idx, n):
         m = floored_weight[i]
         if not np.isfinite(m):
             continue
         expanded_xs.extend([x[i]] * m)
         expanded_ys.extend([y[i]] * m)
 
+    # resolve frac
+    if frac is None:
+        frac_auto = auto_frac_factor / (max_weight * np.nanmean(weight))
+        frac = max(min(frac_auto, 2./3), 0.05)
+        eprint('  using auto-determined lowess fraction of %.3f' % frac)
+
     # lowess fit duplicated data
-    return lowess_fit(
+    lowess_fn = lowess_fit(
         np.array(expanded_xs), np.array(expanded_ys), logx=logx, logy=logy,
         left_boundary=left_boundary, right_boundary=right_boundary, frac=frac,
         delta=delta)
+
+    def fit(x_star):
+        interp_y_hat = interp1d(x, y, bounds_error=False,
+                                fill_value=(y[0], 'extrapolate'))(x_star)
+        fit_y_hat = lowess_fn(x_star)
+        interp_idx = x_star < x[inc_idx]
+        if type(interp_idx) == bool:
+            if interp_idx:
+                return interp_y_hat
+            else:
+                return fit_y_hat
+        fit_y_hat[interp_idx] = interp_y_hat[interp_idx]
+        return fit_y_hat
+
+    return fit
