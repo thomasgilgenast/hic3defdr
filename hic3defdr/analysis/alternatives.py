@@ -6,7 +6,7 @@ purposes.
 import numpy as np
 import scipy.stats as stats
 
-from hic3defdr import HiC3DeFDR
+from hic3defdr.analysis import HiC3DeFDR
 from hic3defdr.util.logging import eprint
 from hic3defdr.util.dispersion import mme_per_pixel
 from hic3defdr.util.clusters import load_clusters

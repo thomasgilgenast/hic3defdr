@@ -4,7 +4,34 @@ import matplotlib.pyplot as plt
 from lib5c.util.plotting import plotter
 from lib5c.plotters.scatter import scatter
 
-from hic3defdr.scaled_nb import mvr, inverse_mvr
+from hic3defdr.util.scaled_nb import mvr, inverse_mvr
+
+
+@plotter
+def compare_disp_fits(fit_fns, labels, max_dist=200, colors=None,
+                      linestyles=None, legend=True, **kwargs):
+    # resolve colors
+    if colors is None:
+        colors = ['C%s' % i for i in range(len(fit_fns))]
+
+    # resolve linestyles
+    if linestyles is None:
+        linestyles = [None] * len(fit_fns)
+
+    # define x values
+    xs = np.arange(max_dist + 1)
+
+    # plot
+    for f, l, c, ls in zip(fit_fns, labels, colors, linestyles):
+        plt.plot(xs, f(xs), color=c, linestyle=ls, label=l)
+
+    # labels
+    plt.xlabel('distance')
+    plt.ylabel('dispersion')
+
+    # add legend
+    if legend:
+        plt.legend()
 
 
 @plotter

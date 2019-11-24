@@ -5,17 +5,17 @@ import scipy.sparse as sparse
 
 from lib5c.util.statistics import adjust_pvalues
 
-import hic3defdr.scaling as scaling
-import hic3defdr.dispersion as dispersion
-from hic3defdr.logging import eprint
-from hic3defdr.matrices import sparse_union
-from hic3defdr.clusters import load_clusters, save_clusters
-from hic3defdr.lowess import lowess_fit, weighted_lowess_fit
-from hic3defdr.lrt import lrt
-from hic3defdr.thresholding import threshold_and_cluster, size_filter
-from hic3defdr.classification import classify
-from hic3defdr.progress import tqdm_maybe as tqdm
-from hic3defdr.parallelization import parallel_apply, parallel_map
+import hic3defdr.util.scaling as scaling
+import hic3defdr.util.dispersion as dispersion
+from hic3defdr.util.logging import eprint
+from hic3defdr.util.matrices import sparse_union
+from hic3defdr.util.clusters import load_clusters, save_clusters
+from hic3defdr.util.lowess import lowess_fit, weighted_lowess_fit
+from hic3defdr.util.lrt import lrt
+from hic3defdr.util.thresholding import threshold_and_cluster, size_filter
+from hic3defdr.util.classification import classify
+from hic3defdr.util.progress import tqdm_maybe as tqdm
+from hic3defdr.util.parallelization import parallel_apply, parallel_map
 
 
 class AnalyzingHiC3DeFDR(object):

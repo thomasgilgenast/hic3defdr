@@ -306,14 +306,14 @@ It's possible to use the the one-dimensional distance dependence curve to
 convert distances to means. Doing so allows plotting the y-axis in terms of
 variance. You can do this by passing `yaxis='var'`:
 
-    >>> _ = h.plot_dispersion_fit('ES', yaxis='var', outfile='var.png')
+    >>> _ = h.plot_dispersion_fit('ES', yaxis='var', outfile='dvr.png')
 
 ![](images/dvr.png)
 
 Using the same trick, you can plot the x-axis in terms of mean by passing
 `xaxis='mean'`:
 
-    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', outfile='mvr.png')
+    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr.png')
 
 ![](images/mvr.png)
 
@@ -330,6 +330,15 @@ as a blue hexbin plot:
 
 If dispersion was fitted against distance rather than mean, pass `xaxis='dist'`
 to plot dispersion/variance versus distance.
+
+### Comparing dispersion fits
+
+It's possible to compare different dispersion fits using the function
+`hic3defdr.compare_disp_fits()` as shown here:
+
+    >>> compare_disp_fits([h.load_disp_fn(cond) for cond in h.design.columns], h.design.columns, max_dist=100, outfile='disp_comparison.png')
+
+![](images/disp_comparison.png)
 
 ### P-value distribution
 
