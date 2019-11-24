@@ -296,6 +296,12 @@ and therefore all support the convenience kwargs provided by that decorator
 
 ![](images/dd.png)
 
+### Correlation matrices
+
+    >>> _ = h.plot_correlation_matrix(outfile='correlation.png')
+
+![](images/correlation.png)
+
 ### Dispersion fitting
 
     >>> _ = h.plot_dispersion_fit('ES', outfile='ddr.png')
