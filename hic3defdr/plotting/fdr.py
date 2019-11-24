@@ -5,7 +5,7 @@ from lib5c.util.plotting import plotter
 
 
 @plotter
-def plot_fdr(eval_results, labels, colors=None, **kwargs):
+def plot_fdr(eval_results, labels, colors=None, p_alt=None, **kwargs):
     """
     Plots an FDR control curve from a list of ``eval.npz``-style results.
 
@@ -21,6 +21,11 @@ def plot_fdr(eval_results, labels, colors=None, **kwargs):
         curve.
     colors : list of valid matplotlib colors, optional
         Colors for each FDR curve. Pass None to automatically assign colors.
+    p_alt : float, optional
+        Pass the true proportion of alternative (non-null) points to draw a
+        dashed line representing the optimal BH-FDR control line and shade the
+        zone of successful FDR control. Pass None to draw a dashed line
+        indicating the boundary of successful FDR control.
     kwargs : kwargs
         Typical plotter kwargs.
 
@@ -42,8 +47,14 @@ def plot_fdr(eval_results, labels, colors=None, **kwargs):
         fdr_idx = np.isfinite(fdr)
         plt.plot(1 - thresh[fdr_idx], fdr[fdr_idx], color=color, label=label)
 
-    # 45-degree line, limits, labels, legend
-    plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
+    # dashed line and shading (if requested)
+    if p_alt is None:
+        plt.plot([0, 1], [0, 1], color='gray', linestyle='--', zorder=1)
+    else:
+        plt.fill_between([0, 1], [0, 0], [0, 1], color='lightgray')
+        plt.plot([0, 1], [0, 1-p_alt], color='gray', linestyle='--', zorder=1)
+
+    # limits, labels, legend
     plt.axis('scaled')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.0])
