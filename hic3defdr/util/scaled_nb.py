@@ -5,8 +5,8 @@ from scipy.optimize import newton, brentq
 
 from lib5c.util.mathematics import gmean
 
-from hic3defdr.logging import eprint
-from hic3defdr.progress import tqdm_maybe as tqdm
+from hic3defdr.util.logging import eprint
+from hic3defdr.util.progress import tqdm_maybe as tqdm
 
 
 def logpmf(k, m, phi):

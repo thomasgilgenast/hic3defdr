@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sparse
 
-from hic3defdr.clusters import find_clusters
+from hic3defdr.util.clusters import find_clusters
 
 
 def classify(row, col, value, clusters):

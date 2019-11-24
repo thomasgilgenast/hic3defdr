@@ -2,7 +2,7 @@ from multiprocessing import Pool, cpu_count
 
 import dill
 
-from hic3defdr.progress import tqdm_avail, tqdm
+from hic3defdr.util.progress import tqdm_avail, tqdm
 
 
 def _pack_for_apply(fn, kwargs_list):

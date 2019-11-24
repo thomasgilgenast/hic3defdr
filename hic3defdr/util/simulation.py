@@ -5,8 +5,8 @@ import scipy.ndimage as ndimage
 
 from lib5c.util.distributions import freeze_distribution
 
-from hic3defdr.scaled_nb import mvr
-from hic3defdr.logging import eprint
+from hic3defdr.util.scaled_nb import mvr
+from hic3defdr.util.logging import eprint
 
 
 def perturb_cluster(matrix, cluster, effect, respect_zeros=True):

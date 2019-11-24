@@ -3,8 +3,8 @@ from scipy.interpolate import interp1d
 
 from lib5c.util.mathematics import gmean
 
-from hic3defdr.binning import equal_bin
-from hic3defdr.progress import tqdm_maybe as tqdm
+from hic3defdr.util.binning import equal_bin
+from hic3defdr.util.progress import tqdm_maybe as tqdm
 
 
 def no_scaling(data):

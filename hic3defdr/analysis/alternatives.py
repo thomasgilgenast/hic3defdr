@@ -7,11 +7,11 @@ import numpy as np
 import scipy.stats as stats
 
 from hic3defdr import HiC3DeFDR
-from hic3defdr.logging import eprint
-from hic3defdr.dispersion import mme_per_pixel
-from hic3defdr.clusters import load_clusters
-from hic3defdr.parallelization import parallel_apply
-import hic3defdr.dispersion as dispersion
+from hic3defdr.util.logging import eprint
+from hic3defdr.util.dispersion import mme_per_pixel
+from hic3defdr.util.clusters import load_clusters
+from hic3defdr.util.parallelization import parallel_apply
+import hic3defdr.util.dispersion as dispersion
 
 
 def poisson_fit_mu_hat(raw, f):

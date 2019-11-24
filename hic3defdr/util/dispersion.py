@@ -2,9 +2,9 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.special import gammaln
 
-from hic3defdr.scaled_nb import inverse_mvr, equalize
-from hic3defdr.binning import equal_bin
-from hic3defdr.lowess import lowess_fit
+from hic3defdr.util.scaled_nb import inverse_mvr, equalize
+from hic3defdr.util.binning import equal_bin
+from hic3defdr.util.lowess import lowess_fit
 
 
 def qcml(data, f=None, max_iter=10, tol=1e-4):

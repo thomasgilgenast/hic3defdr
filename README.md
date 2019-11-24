@@ -563,6 +563,71 @@ subsets of distance scales by using the `min_dist` and `max_dist` kwargs on
 ![](images/roc_by_dist.png)
 ![](images/fdr_by_dist.png)
 
+Package structure
+-----------------
+
+The `hic3defdr` package is layed out in three parts:
+
+ 1. `hic3defdr.util`: library of re-usable functions for performing computations
+    related to differential loop calling
+ 2. `hic3defdr.plotting`: library of re-usable functions to plotting
+    visualizations related to differential loop calling
+ 3. `hic3defdr.analysis`: a module that defines the HiC3DeFDR class, which
+    provides an implementation of stitching together all the computational steps
+    and visualizations in an easy-to-use way
+
+The HiC3DeFDR class includes many methods, so to keep things organized these
+methods are defined in four separate mixin classes which are combined to form
+the full HiC3DeFDR class in `hic3defdr/analysis/__init__.py`:
+
+ - `hic3defdr.analysis.core.CoreHiC3DeFDR`
+ - `hic3defdr.analysis.analysis.AnalyzingHiC3DeFDR`
+ - `hic3defdr.analysis.simulation.SimulatingHiC3DeFDR`
+ - `hic3defdr.analysis.plotting.PlottingHiC3DeFDR`
+
+We recommend that most users simply import the HiC3DeFDR class and interact with
+this package through that interface, but the functions defined in
+`hic3efdr.util` and `hic3defdr.plotting` may also be useful to some users and
+are designed to be somewhat re-usable.
+
+The complete layout of the package is summarized below:
+
+```
+hic3defdr/                      # package root
+├── _version.py                 # manages version information using versioneer
+├── analysis/                   # HiC3DeFDR class and alternatives
+│   ├── __init__.py             # defines HiC3DeFDR class
+│   ├── alternatives.py         # defines alternative analysis models
+│   ├── analysis.py             # HiC3DeFDR's pipeline methods
+│   ├── core.py                 # HiC3DeFDR's core save/load methods
+│   ├── plotting.py             # HiC3DeFDR's plotting methods
+│   └── simulation.py           # HiC3DeFDR's simulation/evaluation methods
+├── plotting/                   # library of plotting functions
+│   ├── dispersion.py           # dispersion/variance fit visualizations
+│   ├── distance_dependence.py  # distance dependence curve comparison
+│   ├── fdr.py                  # FDR control curve plotting
+│   ├── grid.py                 # "pixel detail grid" combination visualization
+│   ├── histograms.py           # p-value/q-value histograms
+│   ├── ma.py                   # MA plots
+│   └── roc.py                  # ROC curve plots
+└── util/                       # library of utility functions 
+    ├── binning.py              # creating groups of points
+    ├── classification.py       # classifying differential loop pixels
+    ├── clusters.py             # interacting with called loop clusters
+    ├── dispersion.py           # estimating dispersions in NB data
+    ├── evaluation.py           # evaluating results of simulations
+    ├── logging.py              # logging updates and info to the console
+    ├── lowess.py               # lowess fitting
+    ├── lrt.py                  # NB likelihood ratio testing
+    ├── matrices.py             # interacting with sparse matrices
+    ├── parallelization.py      # parallelizing work across cores
+    ├── progress.py             # showing progress bars
+    ├── scaled_nb.py            # dealing with scaling factors in NB
+    ├── scaling.py              # scaling reps to account for sequencing depth
+    ├── simulation.py           # simulating pseudoreplicates
+    └── thresholding.py         # thresholding differential pixels/clusters
+```
+
 Additional options
 ------------------
 
