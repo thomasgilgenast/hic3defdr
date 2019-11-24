@@ -243,3 +243,29 @@ def clusters_to_pixel_set(clusters):
         point in the clustering.
     """
     return set().union(*clusters)
+
+
+def cluster_to_slices(cluster, width=21):
+    """
+    Computes a square row and column slice of a specified width centered on a
+    given cluster.
+
+    Parameters
+    ----------
+    cluster : list of tuple
+        A list of (i, j) tuples marking the position of significant points which
+        belong to the cluster.
+    width : int
+        Should be odd. Specifies the side length of the square slice.
+
+    Returns
+    -------
+    slice, slice
+        The row and column slice, respectively.
+    """
+    w = (width - 1) / 2
+    r_idx, c_idx = zip(*cluster)
+    r_center = int(np.mean(r_idx))
+    c_center = int(np.mean(c_idx))
+    return slice(r_center - w, r_center + w + 1), \
+        slice(c_center - w, c_center + w + 1)

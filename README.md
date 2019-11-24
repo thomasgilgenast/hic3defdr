@@ -296,6 +296,26 @@ and therefore all support the convenience kwargs provided by that decorator
 
 ![](images/dd.png)
 
+### Simple heatmap plotting
+
+    >>> _ = h.plot_heatmap('ES_1', 'chr18', slice(1000, 1100), slice(1000, 1100), outfile='heatmap.png')
+
+![](images/heatmap.png)
+
+### Loop zoomin heatmap plotting
+
+We can combine `h.plot_heatmap()` with the `load_clusters()` and
+`cluster_to_slices()` utility functions in `hic3defdr.util.clusters` to plot
+zoomins around specific loops:
+
+    >>> from hic3defdr.util.clusters import load_clusters, cluster_to_slices
+    >>> chrom = 'chr18'
+    >>> clusters = load_clusters(h.loop_patterns['ES'].replace('<chrom>', chrom))
+    >>> slices = cluster_to_slices(clusters[23])
+    >>> _ = h.plot_heatmap('ES_1', chrom, *slices, outfile='zoomin.png')
+
+![](images/zoomin.png)
+
 ### Correlation matrices
 
     >>> _ = h.plot_correlation_matrix(outfile='correlation.png')
@@ -370,7 +390,7 @@ loops, pass `idx='loop'`.
 
 ### Pixel detail grid
 
-    >>> _ = h.plot_grid('chr18', 2218, 2236, 50, outfile='grid.png')
+    >>> _ = h.plot_grid('chr18', 2218, 2236, 20, outfile='grid.png')
 
 ![](images/grid.png)
 

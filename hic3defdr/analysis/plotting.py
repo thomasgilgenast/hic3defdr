@@ -9,6 +9,7 @@ from hic3defdr.plotting.histograms import plot_pvalue_histogram
 from hic3defdr.plotting.dispersion import plot_mvr, plot_ddr
 from hic3defdr.plotting.ma import plot_ma
 from hic3defdr.plotting.grid import plot_grid
+from hic3defdr.plotting.heatmap import plot_heatmap
 
 
 class PlottingHiC3DeFDR(object):
@@ -377,6 +378,40 @@ class PlottingHiC3DeFDR(object):
             **kwargs
         )
 
+    def plot_heatmap(self, rep, chrom, row_slice, col_slice, stage='scaled',
+                     cmap='Reds', vmin=0, vmax=100, **kwargs):
+        """
+        Plots a simple heatmap of a slice of the contact matrix.
+
+        Parameters
+        ----------
+        rep : str
+            The rep to plot.
+        chrom : str
+            The chromosome to plot.
+        row_slice, col_slice : slice
+            The row and column slice, respectively, to plot.
+        stage : {'raw', 'scaled'}
+            The stage of the data to plot.
+        cmap : matplotlib colormap
+            The colormap to use for the heatmap.
+        vmin, vmax : float
+            The vmin and vmax to use for the heatmap colorscale.
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis
+            The axis plotted on.
+        """
+        rep_idx = self.design.index.tolist().index(rep)
+        row = self.load_data('row', chrom)
+        col = self.load_data('col', chrom)
+        data = self.load_data(stage, chrom)[:, rep_idx]
+        plot_heatmap(row, col, data, row_slice, col_slice, cmap=cmap, vmin=vmin,
+                     vmax=vmax, **kwargs)
+
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=3,
                   fdr_vmid=0.05,
                   color_cycle=('blue', 'green', 'purple', 'yellow', 'cyan',
@@ -394,7 +429,7 @@ class PlottingHiC3DeFDR(object):
         i, j : int
             The row and column index of the pixel to focus on.
         w : int
-            The size of the heatmap will be ``2*w`` bins in each dimension.
+            The size of the heatmap will be ``2*w + 1`` bins in each dimension.
         vmax : float
             The maximum of the colorscale to use when plotting normalized
             heatmaps.
@@ -420,16 +455,16 @@ class PlottingHiC3DeFDR(object):
             the cluster outlines using the new parameters.
         """
         # load everything
-        row = np.load('%s/row_%s.npy' % (self.outdir, chrom))
-        col = np.load('%s/col_%s.npy' % (self.outdir, chrom))
-        raw = np.load('%s/raw_%s.npy' % (self.outdir, chrom))
-        scaled = np.load('%s/scaled_%s.npy' % (self.outdir, chrom))
-        disp_idx = np.load('%s/disp_idx_%s.npy' % (self.outdir, chrom))
-        loop_idx = np.load('%s/loop_idx_%s.npy' % (self.outdir, chrom)) \
+        row = self.load_data('row', chrom)
+        col = self.load_data('col', chrom)
+        raw = self.load_data('raw', chrom)
+        scaled = self.load_data('scaled', chrom)
+        disp_idx = self.load_data('disp_idx', chrom)
+        loop_idx = self.load_data('loop_idx', chrom) \
             if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
-        mu_hat_alt = np.load('%s/mu_hat_alt_%s.npy' % (self.outdir, chrom))
-        mu_hat_null = np.load('%s/mu_hat_null_%s.npy' % (self.outdir, chrom))
-        qvalues = np.load('%s/qvalues_%s.npy' % (self.outdir, chrom))
+        mu_hat_alt = self.load_data('mu_hat_alt', chrom)
+        mu_hat_null = self.load_data('mu_hat_null', chrom)
+        qvalues = self.load_data('qvalues', chrom)
 
         return plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt,
                          mu_hat_null, qvalues, disp_idx, loop_idx, self.design,

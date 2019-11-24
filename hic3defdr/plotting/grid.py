@@ -5,10 +5,11 @@ import seaborn as sns
 from lib5c.util.plotting import plotter
 from lib5c.plotters.colormaps import get_colormap
 
-from hic3defdr.util.matrices import select_matrix, dilate
+from hic3defdr.util.matrices import dilate
 from hic3defdr.util.thresholding import threshold_and_cluster, size_filter
 from hic3defdr.util.clusters import clusters_to_coo
 from hic3defdr.util.classification import classify
+from hic3defdr.plotting.heatmap import plot_heatmap
 
 
 @plotter
@@ -26,7 +27,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     i, j : int
         The row and column index of the pixel to focus on.
     w : int
-        The size of the heatmap will be ``2*w`` bins in each dimension.
+        The size of the heatmap will be ``2*w + 1`` bins in each dimension.
     row, col : np.ndarray
         The row and column indices corresponding to the rows of the ``raw`` and
         ``scaled`` matrices.
@@ -82,8 +83,8 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     # precompute some things
     max_reps = np.max(np.sum(design, axis=0))
     idx = np.where((row[disp_idx] == i) & (col[disp_idx] == j))[0][0]
-    extent = [-0.5, 2 * w - 0.5, -0.5, 2 * w - 0.5]
-    rs, cs = slice(i - w, i + w), slice(j - w, j + w)
+    extent = [-0.5, 2 * w + 0.5, -0.5, 2 * w + 0.5]
+    rs, cs = slice(i - w, i + w + 1), slice(j - w, j + w + 1)
     f = raw[disp_idx] / scaled[disp_idx]
     n = max(row.max(), col.max()) + 1
     mu_hat_alt = np.dot(mu_hat_alt, design.values.T)
@@ -97,31 +98,30 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
                            figsize=(design.shape[1] * 6, max_reps * 6))
     bwr = get_colormap('bwr', set_bad='lightgray')
     red = get_colormap('Reds', set_bad='lightgray')
-    ax[-1, 0].imshow(
-        select_matrix(
-            rs, cs, row[disp_idx][loop_idx], col[disp_idx][loop_idx],
-            -np.log10(qvalues)),
-        cmap=bwr, interpolation='none', vmin=0, vmax=-np.log10(fdr_vmid)*2)
+    plot_heatmap(
+        row[disp_idx][loop_idx], col[disp_idx][loop_idx], -np.log10(qvalues),
+        rs, cs, cmap=bwr, vmax=-np.log10(fdr_vmid)*2, ax=ax[-1, 0])
     ax[-1, 0].set_title('qvalues')
     for c in range(design.shape[1]):
-        ax[c, 0].imshow(
-            select_matrix(rs, cs, row, col, mean[:, c]), cmap=red,
-            interpolation='none', vmin=0, vmax=vmax)
+        plot_heatmap(
+            row, col, mean[:, c], rs, cs, cmap=red, vmax=vmax, ax=ax[c, 0])
         ax[c, 0].set_ylabel(design.columns[c])
         ax_idx = 1
         for r in range(design.shape[0]):
             if not design.values[r, c]:
                 continue
-            ax[c, ax_idx].imshow(
-                select_matrix(rs, cs, row, col, scaled[:, r]),
-                cmap=red, interpolation='none', vmin=0, vmax=vmax)
+            plot_heatmap(
+                row, col, scaled[:, r], rs, cs, cmap=red, vmax=vmax,
+                ax=ax[c, ax_idx])
             ax[c, ax_idx].set_title(design.index[r])
             ax_idx += 1
     ax[0, 0].set_title('mean')
     for r in range(design.shape[1] + 1):
         for c in range(max_reps + 1):
-            ax[r, c].get_xaxis().set_ticks([])
-            ax[r, c].get_yaxis().set_ticks([])
+            if r < design.shape[1] - 1:
+                ax[r, c].get_xaxis().set_ticks([])
+            if c > 0:
+                ax[r, c].get_yaxis().set_ticks([])
             if r == design.shape[1] and c == 0:
                 break
 
