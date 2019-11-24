@@ -7,6 +7,9 @@ import dill as pickle
 
 from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
+from lib5c.algorithms.correlation import \
+    make_pairwise_correlation_matrix_from_counts_matrix
+from lib5c.plotters.correlation import plot_correlation_matrix
 
 import hic3defdr.scaling as scaling
 import hic3defdr.dispersion as dispersion
@@ -1270,6 +1273,58 @@ class HiC3DeFDR(object):
             plot_ma(mean, sig_idx, loop_idx=loop_idx, **kwargs)
         else:
             plot_ma(mean[loop_idx], sig_idx, **kwargs)
+
+    def plot_correlation_matrix(self, stage='scaled', idx='loop',
+                                correlation='spearman', colorscale=(0.75, 1.0),
+                                **kwargs):
+        """
+        Plots a matrix of pairwise correlations among all replicates.
+
+        Parameters
+        ----------
+        stage : {'raw', 'scaled'}
+            Specify the stage of the data to compute correlations between.
+        idx : {'disp', 'loop'}
+            Pass 'disp' to compute correlations for all points for which
+            dispersion was estimated. Pass 'loop' to compute correlations for
+            all points which are in loops (available only if ``loop_patterns``
+            was passed to the constructor).
+        correlation : {'spearman', 'pearson'}
+            Which correlation coefficient to compute.
+        colorscale : tuple of float
+            The min and max values of the correlation to use to color the
+            matrix.
+        kwargs : kwargs
+            Typical plotter kwargs.
+
+        Returns
+        -------
+        pyplot axis
+            The axis plotted on.
+        """
+        # resolve idx
+        if idx == 'disp':
+            idx, _ = self.load_data('disp_idx', 'all')
+        elif idx == 'loop':
+            idx = (
+                self.load_data('disp_idx', 'all')[0],
+                self.load_data('loop_idx', 'all')[0]
+            )
+        else:
+            raise ValueError('idx must be \'disp\' or \'loop\'')
+
+        # load data
+        data = self.load_data(stage, 'all', idx=idx)[0].T
+
+        # plot
+        return plot_correlation_matrix(
+            make_pairwise_correlation_matrix_from_counts_matrix(
+                data, correlation=correlation
+            ),
+            label_values=self.design.index.tolist(),
+            colorscale=colorscale,
+            **kwargs
+        )
 
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=3,
                   fdr_vmid=0.05,
