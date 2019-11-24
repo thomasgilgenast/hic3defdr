@@ -866,7 +866,8 @@ class HiC3DeFDR(object):
         for rep, csr in zip(repnames, sim_iter):
             sparse.save_npz('%s/%s_%s_raw.npz' % (outdir, rep, chrom), csr)
 
-    def evaluate(self, cluster_pattern, label_pattern, outfile='eval.npz'):
+    def evaluate(self, cluster_pattern, label_pattern, min_dist=None,
+                 max_dist=None, rerun_bh=False, outfile=None):
         """
         Evaluates the results of this analysis, comparing it to true labels.
 
@@ -885,17 +886,38 @@ class HiC3DeFDR(object):
             should be loadable with ``np.loadtxt(..., dtype='|S7')`` to yield a
             vector of true labels parallel to the clusters pointed to by
             ``cluster_pattern``.
-        outfile : str
+        min_dist, max_dist : int, optional
+            Specify minimum and maximum distances to evaluate performance
+            within, respectively. Pass None to leave one or both ends unbounded.
+        rerun_bh : bool
+            If ``min_dist`` and/or ``max_dist`` are used to constrain the
+            distances, pass True to re-run BH-FDR on the subset of p-values at
+            the selected distances. Pass False to use the original dataset-wide
+            q-values. Does nothing if ``min_dist`` and ``max_dist`` are both
+            None.
+        outfile : str, optional
             Name of a file to save the evaluation results to inside this
-            object's ``outdir``.
+            object's ``outdir``. Default is 'eval.npz' if ``min_dist`` and
+            ``max_dist`` are both None, otherwise it is
+            'eval_<min_dist>_<max_dist>.npz'.
         """
+        # resolve outfile
+        if outfile is None:
+            if min_dist is None and max_dist is None:
+                outfile = 'eval.npz'
+            else:
+                outfile = 'eval_%s_%s.npz' % (min_dist, max_dist)
+
         # resolve case where a condition name was passed to cluster_pattern
         if cluster_pattern in self.loop_patterns.keys():
             cluster_pattern = self.loop_patterns[cluster_pattern]
 
-        # make y_true one chrom at a time
+        # make y_true and pvalues/qvalues (if necessary) one chrom at a time
         y_true = []
+        pvalues = []
+        qvalues = []
         for chrom in self.chroms:
+            # load data
             disp_idx = self.load_data('disp_idx', chrom)
             loop_idx = self.load_data('loop_idx', chrom)
             row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
@@ -903,11 +925,34 @@ class HiC3DeFDR(object):
             clusters = load_clusters(cluster_pattern.replace('<chrom>', chrom))
             labels = np.loadtxt(label_pattern.replace('<chrom>', chrom),
                                 dtype='|S7')
-            y_true.append(make_y_true(row, col, clusters, labels))
-        y_true = np.concatenate(y_true)
 
-        # load qvalues
-        qvalues, _ = self.load_data('qvalues', 'all')
+            # construct dist_idx
+            dist = col - row
+            dist_idx = np.ones(len(dist), dtype=bool)
+            if min_dist is not None:
+                dist_idx[dist < min_dist] = False
+            if max_dist is not None:
+                dist_idx[dist > max_dist] = False
+
+            # append to y_true and pvalues/qvalues (if necessary)
+            y_true.append(make_y_true(
+                row[dist_idx], col[dist_idx], clusters, labels))
+            if min_dist is not None or max_dist is not None:
+                if rerun_bh:
+                    pvalues.append(self.load_data('pvalues', chrom,
+                                   idx=(loop_idx, dist_idx)))
+                else:
+                    qvalues.append(self.load_data('qvalues', chrom,
+                                   idx=dist_idx))
+
+        # concatenate y_true and make or load qvalues
+        y_true = np.concatenate(y_true)
+        if pvalues:
+            qvalues = adjust_pvalues(np.concatenate(pvalues))
+        elif qvalues:
+            qvalues = np.concatenate(qvalues)
+        else:
+            qvalues, _ = self.load_data('qvalues', 'all')
 
         # evaluate and save to disk
         fdr, fpr, tpr, thresh = evaluate(y_true, qvalues)

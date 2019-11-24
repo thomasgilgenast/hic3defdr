@@ -539,6 +539,30 @@ The FDR control plot shows the observed FDR as a function of the FDR threshold.
 Points below the gray diagonal line represent points at which FDR is
 successfully controlled.
 
+As an added bonus, it's also possible to evaluate the performance on specific
+subsets of distance scales by using the `min_dist` and `max_dist` kwargs on
+`HiC3DeFDR.evaluate()` as illustrated below:
+
+    >>> dist_bins = [
+    ...    ('short', (None, 15)),  # distances in bin units
+    ...    ('mid', (16, 30)),
+    ...    ('long', (31, None))
+    ... ]
+    >>> for _, (min_dist, max_dist) in dist_bins:
+    ...     h_sim.evaluate('ES', 'sim/labels_<chrom>.txt', min_dist=min_dist,
+    ...                    max_dist=max_dist)
+    >>> _ = plot_roc([np.load('output-sim/eval_%s_%s.npz' % (min_dist, max_dist))
+    ...               for _, (min_dist, max_dist) in dist_bins],
+    ...              [label for label, _ in dist_bins],
+    ...              outfile='roc_by_dist.png')
+    >>> _ = plot_fdr([np.load('output-sim/eval_%s_%s.npz' % (min_dist, max_dist))
+    ...               for _, (min_dist, max_dist) in dist_bins],
+    ...              [label for label, _ in dist_bins],
+    ...              outfile='fdr_by_dist.png')
+
+![](images/roc_by_dist.png)
+![](images/fdr_by_dist.png)
+
 Additional options
 ------------------
 
