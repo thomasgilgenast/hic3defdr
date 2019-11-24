@@ -10,6 +10,35 @@ from hic3defdr.util.scaled_nb import mvr, inverse_mvr
 @plotter
 def compare_disp_fits(fit_fns, labels, max_dist=200, colors=None,
                       linestyles=None, legend=True, **kwargs):
+    """
+    Compares multiple dispersion fit functions.
+
+    Parameters
+    ----------
+    fit_fns : list of functions
+        The fit functions to compare. Each function should be vectorized and
+        take one argument (the distance) and return one value (the fitted
+        dispersion at that distance).
+    labels : list of str
+        The labels to use for each fit function being compared.
+    max_dist : int
+        The maximum distance out to which the plot should be drawn.
+    colors : list of valid matplotlib colors, optional
+        Pass a list of colors to color each fit function with. Pass None to
+        color them automatically.
+    linestyles : list of valid matplotlib linestyles, optional
+        Pass a list of linestyles to plot each fit function with. Pass None to
+        use the default linestyle.
+    legend : bool
+        Pass True to include a legend on the plot.
+    kwargs : kwargs
+        Typical plotter kwargs.
+
+    Returns
+    -------
+    pyplot axis
+        The axis plotted on.
+    """
     # resolve colors
     if colors is None:
         colors = ['C%s' % i for i in range(len(fit_fns))]
