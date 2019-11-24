@@ -162,10 +162,9 @@ class HiC3DeFDR(object):
             The name of the chromosome to load data for. Pass None if this data
             is not organized by chromosome. Pass 'all' to load data for all
             chromosomes.
-        idx : np.ndarray, optional
-            Pass a boolean array to load only a subset of the data. Useful in
-            combination with ``chrom='all'`` to reduce memory usage. Ignored if
-            ``chrom`` is not 'all'.
+        idx : np.ndarray or tuple of np.ndarray, optional
+            Pass a boolean array to load only a subset of the data. Pass a tuple
+            of exactly two boolean arrays to chain the indices.
 
         Returns
         -------
@@ -177,11 +176,25 @@ class HiC3DeFDR(object):
             ``concatenated_data[offsets[i]:offsets[i+1], :]`` contains the data
             for the ``i``th chromosome.
         """
+        # index chaining
+        if type(idx) == tuple:
+            big_idx, small_idx = idx
+            big_idx = big_idx.copy()
+            big_idx[np.where(big_idx)[0][~small_idx]] = False
+            idx = big_idx
+
         # tackle simple cases first
         if chrom is None:
-            return np.load('%s/%s.npy' % (self.outdir, name))
-        if chrom != 'all':
-            return np.load('%s/%s_%s.npy' % (self.outdir, name, chrom))
+            fname = '%s/%s.npy' % (self.outdir, name)
+        elif chrom != 'all':
+            fname = '%s/%s_%s.npy' % (self.outdir, name, chrom)
+        else:
+            fname = None
+        if fname is not None:
+            if idx is None:
+                return np.load(fname)
+            else:
+                return np.load(fname, mmap_mode='r')[idx]
 
         # idx is genome-wide, this tracks where we are in idx so that we can
         # find a subset of idx that aligns with the current chrom
@@ -198,11 +211,14 @@ class HiC3DeFDR(object):
 
         # loop over chroms
         for chrom in self.chroms:
-            data = np.load('%s/%s_%s.npy' % (self.outdir, name, chrom))
+            fname = '%s/%s_%s.npy' % (self.outdir, name, chrom)
             if idx is not None:
+                data = np.load(fname, mmap_mode='r')
                 full_data_size = data.shape[0]
                 data = data[idx[idx_offset:idx_offset+full_data_size]]
                 idx_offset += full_data_size
+            else:
+                data = np.load(fname)
             offset += data.shape[0]
             offsets.append(offset)
             all_data.append(data)
@@ -498,21 +514,22 @@ class HiC3DeFDR(object):
         eprint('running LRT for chrom %s' % chrom)
         eprint('  loading data', skip=not verbose)
         bias = self.load_bias(chrom)
+        # we load size_factors the slow way because we don't know in advance if
+        # it's 2 dimensional or not
         size_factors = self.load_data('size_factors', chrom)
-        row = self.load_data('row', chrom)
-        col = self.load_data('col', chrom)
-        raw = self.load_data('raw', chrom)
         disp_idx = self.load_data('disp_idx', chrom)
+        row = self.load_data('row', chrom, idx=disp_idx)
+        col = self.load_data('col', chrom, idx=disp_idx)
+        raw = self.load_data('raw', chrom, idx=disp_idx)
         disp = self.load_data('disp', chrom)
 
         eprint('  computing LRT results', skip=not verbose)
         if len(size_factors.shape) == 2:
-            f = bias[row][disp_idx] * bias[col][disp_idx] * \
-                size_factors[disp_idx, :]
+            f = bias[row] * bias[col] * size_factors[disp_idx, :]
         else:
-            f = bias[row][disp_idx] * bias[col][disp_idx] * size_factors
+            f = bias[row] * bias[col] * size_factors
         pvalues, llr, mu_hat_null, mu_hat_alt = lrt(
-            raw[disp_idx, :], f, np.dot(disp, self.design.values.T),
+            raw, f, np.dot(disp, self.design.values.T),
             self.design.values, refit_mu=refit_mu)
 
         eprint('  saving results to disk', skip=not verbose)
@@ -531,20 +548,14 @@ class HiC3DeFDR(object):
         """
         eprint('applying BH-FDR correction')
         if self.loop_patterns:
-            pvalues = [
-                self.load_data('pvalues', chrom)
-                [self.load_data('loop_idx', chrom)]
-                for chrom in self.chroms
-            ]
+            loop_idx, _ = self.load_data('loop_idx', 'all')
         else:
-            pvalues = [self.load_data('pvalues', chrom)
-                       for chrom in self.chroms]
-        all_qvalues = adjust_pvalues(np.concatenate(pvalues))
-        offset = 0
+            loop_idx = None
+        pvalues, offsets = self.load_data('pvalues', 'all', idx=loop_idx)
+        all_qvalues = adjust_pvalues(pvalues)
         for i, chrom in enumerate(self.chroms):
-            self.save_data(all_qvalues[offset:offset + len(pvalues[i])],
-                           'qvalues', chrom)
-            offset += len(pvalues[i])
+            self.save_data(all_qvalues[offsets[i]:offsets[i+1]], 'qvalues',
+                           chrom)
 
     def run_to_qvalues(self, norm='conditional_mor', n_bins_norm=-1,
                        estimator='qcml', frac=None, auto_frac_factor=15.,
@@ -645,8 +656,8 @@ class HiC3DeFDR(object):
         disp_idx = self.load_data('disp_idx', chrom)
         loop_idx = self.load_data('loop_idx', chrom) \
             if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
-        row = self.load_data('row', chrom)[disp_idx][loop_idx]
-        col = self.load_data('col', chrom)[disp_idx][loop_idx]
+        row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
+        col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
         qvalues = self.load_data('qvalues', chrom)
 
         # upgrade fdr and cluster_size to list
@@ -679,7 +690,7 @@ class HiC3DeFDR(object):
             Pass None to run for all chromosomes in series.
         fdr : float or list of float
             The FDR threshold used to identify clusters of significantly
-            differential pixels via ``threshold_chrom()``. Pass a list to do a
+            differential pixels via ``self.threshold()``. Pass a list to do a
             sweep in series.
         cluster_size : int or list of int
             The cluster size threshold used to identify clusters of
@@ -706,12 +717,12 @@ class HiC3DeFDR(object):
             return
         eprint('classifying differential interactions on chrom %s' % chrom)
         # load everything
-        row = self.load_data('row', chrom)
-        col = self.load_data('col', chrom)
-        mu_hat_alt = self.load_data('mu_hat_alt', chrom)
         disp_idx = self.load_data('disp_idx', chrom)
         loop_idx = self.load_data('loop_idx', chrom) \
             if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
+        row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
+        col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
+        mu_hat_alt = self.load_data('mu_hat_alt', chrom, idx=loop_idx)
 
         # upgrade fdr and cluster_size to list
         if not hasattr(fdr, '__len__'):
@@ -725,12 +736,7 @@ class HiC3DeFDR(object):
                 if not os.path.isfile(infile):
                     self.threshold(chrom=chrom, fdr=f, cluster_size=s)
                 sig_clusters = load_clusters(infile)
-                class_clusters = classify(
-                    row[disp_idx][loop_idx],
-                    col[disp_idx][loop_idx],
-                    mu_hat_alt[loop_idx],
-                    sig_clusters
-                )
+                class_clusters = classify(row, col, mu_hat_alt, sig_clusters)
                 for i, c in enumerate(class_clusters):
                     save_clusters(
                         c, '%s/%s_%g_%i_%s.json' %
@@ -892,8 +898,8 @@ class HiC3DeFDR(object):
         for chrom in self.chroms:
             disp_idx = self.load_data('disp_idx', chrom)
             loop_idx = self.load_data('loop_idx', chrom)
-            row = self.load_data('row', chrom)[disp_idx][loop_idx]
-            col = self.load_data('col', chrom)[disp_idx][loop_idx]
+            row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
+            col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
             clusters = load_clusters(cluster_pattern.replace('<chrom>', chrom))
             labels = np.loadtxt(label_pattern.replace('<chrom>', chrom),
                                 dtype='|S7')
@@ -901,8 +907,7 @@ class HiC3DeFDR(object):
         y_true = np.concatenate(y_true)
 
         # load qvalues
-        qvalues = np.concatenate([self.load_data('qvalues', chrom)
-                                  for chrom in self.chroms])
+        qvalues, _ = self.load_data('qvalues', 'all')
 
         # evaluate and save to disk
         fdr, fpr, tpr, thresh = evaluate(y_true, qvalues)
