@@ -375,9 +375,9 @@ It's possible to compare different dispersion fits using the function
 
 ![](images/pvalue_dist.png)
 
-By default, this plots the p-value distribution over only those pixels which are
-part of loops. To plot the p-value distribution over all pixels for which
-dispersion was estimated, pass `idx='disp'`.
+By default, this plots the p-value distribution over all pixels for which
+dispersion was estimated. To plot the p-value distribution only over points in
+loops, pass `idx='loop'`.
 
 ### Q-value distribution
 

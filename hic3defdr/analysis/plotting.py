@@ -197,7 +197,7 @@ class PlottingHiC3DeFDR(object):
         return plot_ddr(dist_per_bin, disp_per_bin, disp_fn,
                         scatter_size=scatter_size, **kwargs)
 
-    def plot_pvalue_distribution(self, idx='loop', **kwargs):
+    def plot_pvalue_distribution(self, idx='disp', **kwargs):
         """
         Plots the p-value distribution across all chromosomes.
 
