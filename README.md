@@ -620,6 +620,8 @@ We can visualize and compare the distance bias of different simulations (the
 degree to which low p-values are enriched or depleted in different distance
 scales) using the `plot_distance_bias()` function as shown below:
 
+    >>> from hic3defdr import plot_distance_bias
+    >>>
     >>> dist_bins = [
     ...    ('short', (None, 15)),  # distances in bin units
     ...    ('mid', (16, 30)),
