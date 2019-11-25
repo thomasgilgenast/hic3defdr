@@ -438,8 +438,7 @@ thresholds on a live-updating plot by running:
 Simulation
 ----------
 
-After the `estimate_disp()` step has been run, a HiC3DeFDR object with exactly
-two conditions and an equal number of replicates per condition can be used to
+After the `estimate_disp()` step has been run, a HiC3DeFDR object can be used to
 generate simulations of differential looping.
 
 ### Generating simulations
