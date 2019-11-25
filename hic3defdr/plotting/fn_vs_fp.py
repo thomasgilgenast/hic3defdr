@@ -54,7 +54,7 @@ def plot_fn_vs_fp(eval_results, labels, threshold=0.15, colors=None,
     if type(eval_results[0]) in [list, tuple]:
         hue = 'group'
         color = None
-        hue_order = colors if colors else None
+        palette = colors if colors else None
         for res_group, group_label in zip(eval_results, labels[0]):
             for res, label in zip(res_group, labels[1]):
                 if res is None:
@@ -73,7 +73,7 @@ def plot_fn_vs_fp(eval_results, labels, threshold=0.15, colors=None,
     else:
         hue = None
         color = colors if colors else 'k'
-        hue_order = None
+        palette = None
         for res, label in zip(eval_results, labels):
             # unbox results
             fpr = res['fpr']
@@ -88,9 +88,9 @@ def plot_fn_vs_fp(eval_results, labels, threshold=0.15, colors=None,
     df = pd.DataFrame(data)
     fig, axes = plt.subplots(1, 2, figsize=(6, 3))
     plt.subplots_adjust(wspace=0.4)
-    sns.barplot(data=df, x=xlabel, y='FNR', hue=hue, hue_order=hue_order,
+    sns.barplot(data=df, x=xlabel, y='FNR', hue=hue, palette=palette,
                 color=color, ax=axes[0])
-    sns.barplot(data=df, x=xlabel, y='FPR', hue=hue, hue_order=hue_order,
+    sns.barplot(data=df, x=xlabel, y='FPR', hue=hue, palette=palette,
                 color=color, ax=axes[1])
     if hue is not None:
         axes[0].legend_.remove()
