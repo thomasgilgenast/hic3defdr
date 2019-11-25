@@ -339,7 +339,7 @@ variance. You can do this by passing `yaxis='var'`:
 Using the same trick, you can plot the x-axis in terms of mean by passing
 `xaxis='mean'`:
 
-    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr.png')
+    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', outfile='mvr.png')
 
 ![](images/mvr.png)
 
