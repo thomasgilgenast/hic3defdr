@@ -364,7 +364,8 @@ It's possible to compare different dispersion fits using the function
 
     >>> from hic3defdr import compare_disp_fits
     >>>
-    >>> compare_disp_fits([h.load_disp_fn(cond) for cond in h.design.columns], h.design.columns, max_dist=100, outfile='disp_comparison.png')
+    >>> _ = compare_disp_fits([h.load_disp_fn(cond) for cond in h.design.columns],
+    ...                       h.design.columns, max_dist=100, outfile='disp_comparison.png')
 
 ![](images/disp_comparison.png)
 
@@ -604,10 +605,10 @@ It's also possible to compare the FPR and FNR at the different subsets:
 
     >>> from hic3defdr import plot_fn_vs_fp
     >>>
-    >>> _ plot_fn_vs_fp([np.load('output-sim/eval_%s_%s.npz' % (min_dist, max_dist))
-    ...                  for _, (min_dist, max_dist) in dist_bins],
-    ...                 [label for label, _ in dist_bins], xlabel='distance subset',
-    ...                 outfile='fn_vs_fp.png')
+    >>> _ = plot_fn_vs_fp([np.load('output-sim/eval_%s_%s.npz' % (min_dist, max_dist))
+    ...                    for _, (min_dist, max_dist) in dist_bins],
+    ...                   [label for label, _ in dist_bins], xlabel='distance subset',
+    ...                   outfile='fn_vs_fp.png')
 
 ![](images/fn_vs_fp.png)
 
