@@ -598,6 +598,17 @@ subsets of distance scales by using the `min_dist` and `max_dist` kwargs on
 ![](images/roc_by_dist.png)
 ![](images/fdr_by_dist.png)
 
+It's also possible to compare the FPR and FNR at the different subsets:
+
+    >>> from hic3defdr import plot_fn_vs_fp
+    >>>
+    >>> plot_fn_vs_fp([np.load('output-sim/eval_%s_%s.npz' % (min_dist, max_dist))
+    ...                for _, (min_dist, max_dist) in dist_bins],
+    ...               [label for label, _ in dist_bins], xlabel='distance subset',
+    ...               outfile='fn_vs_fp.png')
+
+![](images/fn_vs_fp.png)
+
 Package structure
 -----------------
 
