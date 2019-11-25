@@ -45,8 +45,10 @@ def plot_fn_vs_fp(eval_results, labels, threshold=0.15, colors=None,
 
     Returns
     -------
-    pyplot axis
-        The axis plotted on.
+    pyplot axis, array of pyplot axes
+        The first pyplot axis returned is injected by ``@plotter``. The array of
+        pyplot axes is the second return value from the call to
+        ``plt.subplots()`` that is used to create the pair of barplots.
     """
     data = []
     if type(eval_results[0]) in [list, tuple]:
