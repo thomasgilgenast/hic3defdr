@@ -611,6 +611,24 @@ It's also possible to compare the FPR and FNR at the different subsets:
 
 ![](images/fn_vs_fp.png)
 
+Other visualizations
+--------------------
+
+### Distance bias
+
+We can visualize and compare the distance bias of different simulations (the
+degree to which low p-values are enriched or depleted in different distance
+scales) using the `plot_distance_bias()` function as shown below:
+
+    >>> dist_bins = [
+    ...    ('short', (None, 15)),  # distances in bin units
+    ...    ('mid', (16, 30)),
+    ...    ('long', (31, None))
+    ... ]
+    >>> _ = plot_distance_bias([h, h_sim], [b for _, b in dist_bins], labels=['real', 'sim'], outfile='distance_bias.png')
+
+![](images/distance_bias.png)
+
 Package structure
 -----------------
 
@@ -652,9 +670,12 @@ hic3defdr/                      # package root
 │   └── simulation.py           # HiC3DeFDR's simulation/evaluation methods
 ├── plotting/                   # library of plotting functions
 │   ├── dispersion.py           # dispersion/variance fit visualizations
+│   ├── distance_bias.py        # distance bias comparison barplots
 │   ├── distance_dependence.py  # distance dependence curve comparison
 │   ├── fdr.py                  # FDR control curve plotting
+│   ├── fn_vs_fp.py             # FN vs FP tradeoff barplots
 │   ├── grid.py                 # "pixel detail grid" combination visualization
+│   ├── heatmap.py              # simple contact matrix heatmap plotting
 │   ├── histograms.py           # p-value/q-value histograms
 │   ├── ma.py                   # MA plots
 │   └── roc.py                  # ROC curve plots
