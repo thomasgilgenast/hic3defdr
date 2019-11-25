@@ -95,7 +95,7 @@ def fit_mu_hat(x, b, alpha, verbose=True):
     Examples
     --------
     >>> import numpy as np
-    >>> from hic3defdr.scaled_nb import fit_mu_hat
+    >>> from hic3defdr.util.scaled_nb import fit_mu_hat
 
     3 pixels, 2 reps (matrices):
     >>> x = np.array([[1, 2],
