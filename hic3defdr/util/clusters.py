@@ -269,3 +269,32 @@ def cluster_to_slices(cluster, width=21):
     c_center = int(np.mean(c_idx))
     return slice(r_center - w, r_center + w + 1), \
         slice(c_center - w, c_center + w + 1)
+
+
+def filter_clusters_by_distance(clusters, min_dist, max_dist):
+    """
+    Filters a list of clusters by distance.
+
+    Parameters
+    ----------
+    clusters : list of list of tuple
+        The outer list is a list of clusters. Each cluster is a list of (i, j)
+        tuples marking the position of significant points which belong to that
+        cluster.
+    min_dist, max_dist : int or None
+        Specify a range of distances in bin units to filter by (inclusive). If
+        either ``min_dist`` or ``max_dist`` is None, the distance bin will be
+        considered unbounded on that end.
+
+    Returns
+    -------
+    list of list of tuple
+        The clusters that are within the distance range requested.
+    """
+    dist_idx = np.ones(len(clusters), dtype=bool)
+    dist = np.array([np.mean([j-i for i, j in c]) for c in clusters])
+    if min_dist is not None:
+        dist_idx[dist < min_dist] = False
+    if max_dist is not None:
+        dist_idx[dist > max_dist] = False
+    return [c for idx, c in zip(dist_idx, clusters) if idx]
