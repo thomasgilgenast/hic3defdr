@@ -1,7 +1,15 @@
 hic3defdr
 =========
 
-a genome-scale differential loop finder
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/hicdefdr.svg)
+[![PyPI - Wheel](https://img.shields.io/pypi/wheel/hicdefdr.svg)](https://pypi.org/project/hicdefdr)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/hicdefdr.svg)](https://pypi.org/project/hicdefdr)
+[![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/creminslab/3defdr-hic.svg)](https://bitbucket.org/creminslab/3defdr-hic/addon/pipelines/home)
+
+A genome-scale differential loop finder.
+
+For the latest source, discussion, etc, please visit the Bitbucket repository at
+https://bitbucket.org/creminslab/hic3defdr
 
 Installation
 ------------
@@ -12,16 +20,16 @@ A typical quick install process should be:
 
     $ virtualenv venv
     $ source venv/bin/activate
-    (venv)$ pip install numpy
-    (venv)$ pip install --extra-index-url https://pypi.gilgi.org hic3defdr
+    (venv)$ python -m pip install -U pip
+    (venv)$ pip install hic3defdr
 
 A typical dev-mode install process should be:
 
-    $ git clone https://<username>@bitbucket.org/creminslab/hic3defdr.git
+    $ git clone https://bitbucket.org/creminslab/hic3defdr.git
     $ cd hic3defdr
     $ virtualenv venv
     $ source venv/bin/activate
-    (venv)$ pip install numpy
+    (venv)$ python -m pip install -U pip
     (venv)$ pip install -e .
 
 If installation succeeded then `hic3defdr.HiC3DeFDR` should be importable from

@@ -2,14 +2,8 @@ from setuptools import setup, find_packages
 
 import versioneer
 
-readme_note = """\
-.. note::
-   For the latest source, discussion, etc, please visit the
-   `Bitbucket repository <https://bitbucket.org/creminslab/hic3defdr>`_\n\n
-"""
-
 with open('README.md') as fobj:
-    long_description = readme_note + fobj.read()
+    long_description = fobj.read()
 
 extras_require = {
     'evaluation': ['scikit-learn>=0.20.3'],
@@ -24,6 +18,7 @@ setup(
     cmdclass=versioneer.get_cmdclass(),
     description='a genome-scale differential loop finder',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     author='Thomas Gilgenast',
     url='https://bitbucket.org/creminslab/hic3defdr',
     packages=find_packages(),
