@@ -544,15 +544,13 @@ class AnalyzingHiC3DeFDR(object):
                                           .replace('<class>', 'insig')
                                           .replace('<chrom>', chrom))
                            for chrom in self.chroms):
-                    self.threshold(fdr=fdr, cluster_size=cluster_size,
-                                   n_threads=n_threads)
+                    self.threshold(fdr=f, cluster_size=s, n_threads=n_threads)
                 if not all(os.path.isfile(pattern
                                           .replace('<class>', c)
                                           .replace('<chrom>', chrom))
                            for c in self.design.columns
                            for chrom in self.chroms):
-                    self.classify(fdr=fdr, cluster_size=cluster_size,
-                                  n_threads=n_threads)
+                    self.classify(fdr=f, cluster_size=s, n_threads=n_threads)
 
                 # output file we want to write the final table to
                 outfile = '%s/results_%g_%i.tsv' % (self.outdir, f, s)
