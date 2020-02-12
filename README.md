@@ -734,6 +734,7 @@ hic3defdr/                      # package root
 └── util/                       # library of utility functions 
     ├── binning.py              # creating groups of points
     ├── classification.py       # classifying differential loop pixels
+    ├── cluster_table.py        # creating tables summarizing cluster info
     ├── clusters.py             # interacting with called loop clusters
     ├── dispersion.py           # estimating dispersions in NB data
     ├── evaluation.py           # evaluating results of simulations
