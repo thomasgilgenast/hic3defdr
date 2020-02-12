@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project attempts to adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.1.0 - 2020-02-12
 
 ### Added
  - This changelog!
@@ -32,4 +32,5 @@ First official release, corresponds to what was used in the second submission of
 the related manuscript.
 
 ## Diffs
+- [0.1.0](https://bitbucket.org/creminslab/lib5c/branches/compare/0.1.0..0.0.9#diff)
 - [0.0.9](https://bitbucket.org/creminslab/hic3defdr/src/0.0.9)
