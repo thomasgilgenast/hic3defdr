@@ -518,6 +518,14 @@ class AnalyzingHiC3DeFDR(object):
             many threads as there are CPUs. Pass 0 to process the chromosomes
             serially.
         """
+        if self.res is None:
+            raise ValueError(
+                'the collect() step can only be run if the res kwarg was '
+                'passed during construction of the HiC3DeFDR object; please '
+                'run the classify() step instead or re-create the HiC3DeFDR '
+                'object (you do not need to re-run any other steps)'
+            )
+
         eprint('collecting differential interactions')
 
         # upgrade fdr and cluster_size to list

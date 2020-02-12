@@ -95,7 +95,8 @@ construct a `HiC3DeFDR` object:
     ...     chroms=chroms,
     ...     design=design,
     ...     outdir='output',
-    ...     loop_patterns={c: base_path + 'clusters/%s_<chrom>_clusters.json' % c for c in ['ES', 'NPC']}
+    ...     loop_patterns={c: base_path + 'clusters/%s_<chrom>_clusters.json' % c for c in ['ES', 'NPC']},
+    ...     res=10000
     ... )
     creating directory output
 
