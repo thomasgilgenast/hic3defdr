@@ -32,5 +32,5 @@ First official release, corresponds to what was used in the second submission of
 the related manuscript.
 
 ## Diffs
-- [0.1.0](https://bitbucket.org/creminslab/lib5c/branches/compare/0.1.0..0.0.9#diff)
+- [0.1.0](https://bitbucket.org/creminslab/hic3defdr/branches/compare/0.1.0..0.0.9#diff)
 - [0.0.9](https://bitbucket.org/creminslab/hic3defdr/src/0.0.9)
