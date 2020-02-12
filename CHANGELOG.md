@@ -9,13 +9,13 @@ and this project attempts to adhere to [Semantic Versioning](https://semver.org/
 ### Added
  - This changelog!
  - The pipeline now generates a final table of loop calls as requested by [#23](https://bitbucket.org/creminslab/hic3defdr/issues/23/pipeline-should-write-a-table-of-final).
-   - Added a new pipeline step `HiC3DeFDR.collect()` - we now recommend running
-     this instead of `HiC3DeFDR.classify()`.
-   - Added a new utility module `hic3defdr.util.cluster_table` to support
-     creating tabular files summarizing cluster information
-   - Added a few new functions in `hic3defdr.util.clusters` as well as some
-     better test coverage in this module.
-   - The README has been updated to cover this new step and output format.
+    - Added a new pipeline step `HiC3DeFDR.collect()` - we now recommend running
+      this instead of `HiC3DeFDR.classify()`.
+    - Added a new utility module `hic3defdr.util.cluster_table` to support
+      creating tabular files summarizing cluster information
+    - Added a few new functions in `hic3defdr.util.clusters` as well as some
+      better test coverage in this module.
+    - The README has been updated to cover this new step and output format.
 
 ### Changed
  - Renamed `hic3defdr.util.logging` to `hic3defdr.util.printing` to avoid a rare
