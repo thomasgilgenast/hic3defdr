@@ -48,16 +48,20 @@ class HiC3DeFDR(CoreHiC3DeFDR, AnalyzingHiC3DeFDR, SimulatingHiC3DeFDR,
     mean_thresh : float
         Pixels with mean value below this threshold will be filtered out at the
         dispersion fitting stage.
-    loop_patterns : dict of str
+    loop_patterns : dict of str, optional
         Keys should be condition names as strings, values should be file path
         patterns to sparse JSON formatted cluster files representing called
         loops in that condition. Each file path pattern should contain at least
         one '<chrom>' which will be replaced with the chromosome name when
         loading data for specific chromosomes.
+    res : int, optional
+        The bin resolution, in base pair units, of the input contact matrix
+        data. Used only when printing TSV output. Pass None to skip printing TSV
+        output during the ``threshold()`` and ``classify()`` steps.
     """
     def __init__(self, raw_npz_patterns, bias_patterns, chroms, design, outdir,
                  dist_thresh_min=4, dist_thresh_max=200, bias_thresh=0.1,
-                 mean_thresh=1.0, loop_patterns=None):
+                 mean_thresh=1.0, loop_patterns=None, res=None):
         """
         Base constructor. See ``help(HiC3DeFDR)`` for details.
         """
@@ -74,6 +78,7 @@ class HiC3DeFDR(CoreHiC3DeFDR, AnalyzingHiC3DeFDR, SimulatingHiC3DeFDR,
         self.bias_thresh = bias_thresh
         self.mean_thresh = mean_thresh
         self.loop_patterns = loop_patterns
+        self.res = res
         state = self.__dict__.copy()
         del state['outdir']
         check_outdir(self.picklefile)

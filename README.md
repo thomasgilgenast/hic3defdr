@@ -107,9 +107,30 @@ To run the analysis for all chromosomes through q-values, run:
 
     >>> h.run_to_qvalues()
 
-To threshold, cluster, and classify the significantly differential loops, run:
+To threshold, cluster, and classify the significantly differential loops, and
+collect all the results into a single TSV output file, run:
 
-    >>> h.classify()
+    >>> h.collect()
+
+The output file will be written to `output/results_0.01_3.tsv`, where "output"
+refers to the `outdir` we passed when constructing the `HiC3DeFDR` object,
+"0.01" refers to the default FDR of 1%, and "3" refers to the default cluster
+size threshold of 3.
+
+    >>> import pandas as pd
+    >>> pd.read_csv('output/results_0.05_3.tsv', sep='\t', index_col=0).head()
+                                                us_chrom  ...  classification
+    loop_id                                               ...
+    chr18:3480000-3500000_chr18:4680000-4710000    chr18  ...    constitutive
+    chr18:3490000-3510000_chr18:3790000-3810000    chr18  ...              ES
+    chr18:3490000-3510000_chr18:3970000-3990000    chr18  ...    constitutive
+    chr18:3490000-3510000_chr18:4170000-4200000    chr18  ...    constitutive
+    chr18:3490000-3520000_chr18:4120000-4150000    chr18  ...    constitutive
+    <BLANKLINE>
+    [5 rows x 9 columns]
+
+See the section "TSV output format" below for more details about the output
+format.
 
 Step-by-step walkthrough
 ------------------------
@@ -117,7 +138,7 @@ Step-by-step walkthrough
 Calling `h.run_to_qvalues()` runs the four main steps of the analysis in
 sequence. These four steps are described in further detail below. Any kwargs
 passed to `h.run_to_qvalues()` will be passed along to the appropriate step; see
-`help(HiC3DeFDR.run_to_qvalues())` for details.
+`help(HiC3DeFDR.run_to_qvalues)` for details.
 
 ### Step 1: Preparing input data
 
@@ -183,17 +204,17 @@ for each loop pixel.
 
 ### Thresholding, clustering, and classification
 
-We threshold, cluster, and classify the significantly differential loops:
+We can threshold, cluster, classify, and collect the significantly differential
+loops:
 
-    >>> h.classify(fdr=0.05, cluster_size=3)
+    >>> h.collect(fdr=0.05, cluster_size=3)
 
 We can also sweep across FDR and/or cluster size thresholds:
 
-    >>> h.classify(fdr=[0.01, 0.05], cluster_size=[3, 4])
+    >>> h.collect(fdr=[0.01, 0.05], cluster_size=[3, 4])
 
-`h.classify()` calls `h.threshold()` automatically for FDR and cluster size
-thresholds that have not been run yet. `h.threshold()` is the step that performs
-thresholding and clustering but not classification.
+The final output file for each combination of thresholding parameters will be
+written to `<h.outdir>/results_<fdr>_<cluster_size>.tsv`.
 
 This example walkthrough should take less than 5 minutes for the two chromosomes
 included in the demo data. Run time for a whole-genome analysis will depend on
@@ -224,31 +245,37 @@ Intermediates and final output files
 
 All intermediates used in the computation will be saved to the disk inside the
 `outdir` folder as `<intermediate>_<chrom>.npy` (most intermediates),
-`<intermediate>_<chrom>.json` (thresholded or classified clusters), or
-`<intermediate>_<chrom>.pickle` (estimated dispersion functions).
+`<intermediate>_<chrom>.json`/`<intermediate>_<chrom>.tsv` (thresholded or
+classified clusters).
 
-| Step              | Intermediate    | Shape                               | Description                                 |
-|-------------------|-----------------|-------------------------------------|---------------------------------------------|
-| `prepare_data()`  | `row`           | `(n_pixels,)`                       | Top-level row index                         |
-| `prepare_data()`  | `col`           | `(n_pixels,)`                       | Top-level column index                      |
-| `prepare_data()`  | `bias`          | `(n_bins, n_reps)`                  | Bias vectors                                |
-| `prepare_data()`  | `raw`           | `(n_pixels, n_reps)`                | Raw count values                            |
-| `prepare_data()`  | `size_factors`  | `(n_reps,)` or `(n_pixels, n_reps)` | Size factors                                |
-| `prepare_data()`  | `scaled`        | `(n_pixels, n_reps)`                | Normalized count values                     |
-| `prepare_data()`  | `disp_idx`      | `(n_pixels,)`                       | Marks pixels for which dispersion is fitted |
-| `prepare_data()`  | `loop_idx`      | `(disp_idx.sum(),)`                 | Marks pixels which lie in loops             |
-| `estimate_disp()` | `cov_per_bin`   | `(n_bins, n_conds)`                 | Average mean count or distance in each bin  |
-| `estimate_disp()` | `disp_per_bin`  | `(n_bins, n_conds)`                 | Pooled dispersion estimates in each bin     |
-| `estimate_disp()` | `disp_fn_<c>`   | pickled function                    | Fitted dispersion function                  |
-| `estimate_disp()` | `disp`          | `(disp_idx.sum(), n_conds)`         | Smoothed dispersion estimates               |
-| `lrt()`           | `mu_hat_null`   | `(disp_idx.sum(),)`                 | Null model mean parameters                  |
-| `lrt()`           | `mu_hat_alt`    | `(disp_idx.sum(), n_conds)`         | Alternative model mean parameters           |
-| `lrt()`           | `llr`           | `(disp_idx.sum(),)`                 | Log-likelihood ratio                        |
-| `lrt()`           | `pvalues`       | `(disp_idx.sum(),)`                 | LRT-based p-value                           |
-| `bh()`            | `qvalues`       | `(loop_idx.sum(),)`                 | BH-corrected q-values                       |
-| `threshold()`     | `sig_<f>_<s>`   | JSON                                | Significantly differential clusters         |
-| `threshold()`     | `insig_<f>_<s>` | JSON                                | Constitutive clusters                       |
-| `classify()`      | `<c>_<f>_<s>`   | JSON                                | Classified differential clusters            |
+Two intermediates are not generated per chromosome. These are
+`disp_fn_<c>.pickle` (dispersion function estimated across all chromosomes for
+condition `<c>`) and `results_<f>_<s>.tsv` (final combined results from all
+chromosomes).
+
+| Step              | Intermediate      | Shape                               | Description                                 |
+|-------------------|-------------------|-------------------------------------|---------------------------------------------|
+| `prepare_data()`  | `row`             | `(n_pixels,)`                       | Top-level row index                         |
+| `prepare_data()`  | `col`             | `(n_pixels,)`                       | Top-level column index                      |
+| `prepare_data()`  | `bias`            | `(n_bins, n_reps)`                  | Bias vectors                                |
+| `prepare_data()`  | `raw`             | `(n_pixels, n_reps)`                | Raw count values                            |
+| `prepare_data()`  | `size_factors`    | `(n_reps,)` or `(n_pixels, n_reps)` | Size factors                                |
+| `prepare_data()`  | `scaled`          | `(n_pixels, n_reps)`                | Normalized count values                     |
+| `prepare_data()`  | `disp_idx`        | `(n_pixels,)`                       | Marks pixels for which dispersion is fitted |
+| `prepare_data()`  | `loop_idx`        | `(disp_idx.sum(),)`                 | Marks pixels which lie in loops             |
+| `estimate_disp()` | `cov_per_bin`     | `(n_bins, n_conds)`                 | Average mean count or distance in each bin  |
+| `estimate_disp()` | `disp_per_bin`    | `(n_bins, n_conds)`                 | Pooled dispersion estimates in each bin     |
+| `estimate_disp()` | `disp_fn_<c>`     | pickled function                    | Fitted dispersion function                  |
+| `estimate_disp()` | `disp`            | `(disp_idx.sum(), n_conds)`         | Smoothed dispersion estimates               |
+| `lrt()`           | `mu_hat_null`     | `(disp_idx.sum(),)`                 | Null model mean parameters                  |
+| `lrt()`           | `mu_hat_alt`      | `(disp_idx.sum(), n_conds)`         | Alternative model mean parameters           |
+| `lrt()`           | `llr`             | `(disp_idx.sum(),)`                 | Log-likelihood ratio                        |
+| `lrt()`           | `pvalues`         | `(disp_idx.sum(),)`                 | LRT-based p-value                           |
+| `bh()`            | `qvalues`         | `(loop_idx.sum(),)`                 | BH-corrected q-values                       |
+| `threshold()`     | `sig_<f>_<s>`     | JSON/TSV                            | Significantly differential clusters         |
+| `threshold()`     | `insig_<f>_<s>`   | JSON/TSV                            | Constitutive clusters                       |
+| `classify()`      | `<c>_<f>_<s>`     | JSON/TSV                            | Classified differential clusters            |
+| `collect()`       | `results_<f>_<s>` | TSV                                 | Final results table                         |
 
 The table uses these abbreviations to refer to variable parts of certain
 intermediate names:
@@ -256,8 +283,6 @@ intermediate names:
  - `<f>`: FDR threshold
  - `<s>`: cluster size threshold
  - `<c>`: condition/class label
-
-TODO: add a tsv-style output file
 
 Sparse JSON cluster format
 --------------------------
@@ -280,6 +305,22 @@ Python objects using `hic3defdr.clusters.load_clusters()` and
 be converted to and from scipy sparse matrix objects using
 `hic3defdr.clusters.clusters_to_coo()` and
 `hic3defdr.clusters.convert_cluster_array_to_sparse()`, respectively.
+
+TSV output format
+-----------------
+
+The final TSV output file `results_<f>_<s>.tsv` has as its first column a
+`loop_id`, a string of the form
+`<us_chrom>:<us_start>-<us_end>_<ds_chrom>:<ds_start>-<ds_end>` specifying a
+rectangle that surrounds the cluster of pixels that make up the loop. The next
+six columns are the six individual pieces of this `loop_id`. This is followed
+by:
+ - `cluster_size`: the number of pixels in the cluster
+ - `cluster`: a list of the exact (row, col) indices of the pixels in the
+   cluster
+ - `classification`: this will be "constitutive" if the loop is not
+   differential, or the name of the condition the loop is specific to (i.e.,
+   strongest in) if it is differential
 
 Visualizations
 --------------

@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import scipy.sparse as sparse
+import pandas as pd
 
 from lib5c.util.statistics import adjust_pvalues
 
@@ -10,6 +11,8 @@ import hic3defdr.util.dispersion as dispersion
 from hic3defdr.util.printing import eprint
 from hic3defdr.util.matrices import sparse_union
 from hic3defdr.util.clusters import load_clusters, save_clusters
+from hic3defdr.util.cluster_table import clusters_to_table, \
+    load_cluster_table, sort_cluster_table
 from hic3defdr.util.lowess import lowess_fit, weighted_lowess_fit
 from hic3defdr.util.lrt import lrt
 from hic3defdr.util.thresholding import threshold_and_cluster, size_filter
@@ -410,13 +413,22 @@ class AnalyzingHiC3DeFDR(object):
             sig_clusters, insig_clusters = threshold_and_cluster(
                 qvalues, row, col, fdr)
             for s in cluster_size:
-                # threshold on cluster size and save to disk
-                save_clusters(size_filter(sig_clusters, s),
-                              '%s/sig_%g_%i_%s.json' %
-                              (self.outdir, f, s, chrom))
-                save_clusters(size_filter(insig_clusters, s),
-                              '%s/insig_%g_%i_%s.json' %
-                              (self.outdir, f, s, chrom))
+                # threshold on cluster size
+                filtered_sig_clusters = size_filter(sig_clusters, s)
+                filtered_insig_clusters = size_filter(insig_clusters, s)
+                # save to disk
+                sig_outfile = '%s/sig_%g_%i_%s.json' % \
+                    (self.outdir, f, s, chrom)
+                insig_outfile = '%s/insig_%g_%i_%s.json' % \
+                    (self.outdir, f, s, chrom)
+                save_clusters(filtered_sig_clusters, sig_outfile)
+                save_clusters(filtered_insig_clusters, insig_outfile)
+                if self.res is not None:
+                    clusters_to_table(filtered_sig_clusters, chrom, self.res)\
+                        .to_csv(sig_outfile.replace('.json', '.tsv'), sep='\t')
+                    clusters_to_table(filtered_insig_clusters, chrom, self.res)\
+                        .to_csv(insig_outfile.replace('.json', '.tsv'),
+                                sep='\t')
 
     def classify(self, chrom=None, fdr=0.05, cluster_size=3, n_threads=-1):
         """
@@ -478,6 +490,79 @@ class AnalyzingHiC3DeFDR(object):
                 sig_clusters = load_clusters(infile)
                 class_clusters = classify(row, col, mu_hat_alt, sig_clusters)
                 for i, c in enumerate(class_clusters):
-                    save_clusters(
-                        c, '%s/%s_%g_%i_%s.json' %
-                           (self.outdir, self.design.columns[i], f, s, chrom))
+                    outfile = '%s/%s_%g_%i_%s.json' % \
+                        (self.outdir, self.design.columns[i], f, s, chrom)
+                    save_clusters(c, outfile)
+                    if self.res is not None:
+                        clusters_to_table(c, chrom, self.res)\
+                            .to_csv(outfile.replace('.json', '.tsv'), sep='\t')
+
+    def collect(self, fdr=0.05, cluster_size=3, n_threads=-1):
+        """
+        Collects information on thresholded and classified differential
+        interactions into a single TSV output file.
+
+        Parameters
+        ----------
+        fdr : float or list of float
+            The FDR threshold used to identify clusters of significantly
+            differential pixels via ``self.threshold()``. Pass a list to do a
+            sweep in series.
+        cluster_size : int or list of int
+            The cluster size threshold used to identify clusters of
+            significantly differential pixels via ``threshold()``. Pass a list
+            to do a sweep in series.
+        n_threads : int
+            The number of threads (technically GIL-avoiding child processes) to
+            use to process multiple chromosomes in parallel. Pass -1 to use as
+            many threads as there are CPUs. Pass 0 to process the chromosomes
+            serially.
+        """
+        eprint('collecting differential interactions')
+
+        # upgrade fdr and cluster_size to list
+        if not hasattr(fdr, '__len__'):
+            fdr = [fdr]
+        if not hasattr(cluster_size, '__len__'):
+            cluster_size = [cluster_size]
+
+        for f in fdr:
+            for s in cluster_size:
+                # file pattern where we expect tables to be present
+                pattern = '%s/<class>_%g_%i_<chrom>.tsv' % (self.outdir, f, s)
+
+                # ensure that all outputs are present
+                if not all(os.path.isfile(pattern
+                                          .replace('<class>', 'insig')
+                                          .replace('<chrom>', chrom))
+                           for chrom in self.chroms):
+                    self.threshold(fdr=fdr, cluster_size=cluster_size,
+                                   n_threads=n_threads)
+                if not all(os.path.isfile(pattern
+                                          .replace('<class>', c)
+                                          .replace('<chrom>', chrom))
+                           for c in self.design.columns
+                           for chrom in self.chroms):
+                    self.classify(fdr=fdr, cluster_size=cluster_size,
+                                  n_threads=n_threads)
+
+                # output file we want to write the final table to
+                outfile = '%s/results_%g_%i.tsv' % (self.outdir, f, s)
+
+                # collect cluster tables
+                tables = []
+                for chrom in self.chroms:
+                    df = load_cluster_table(pattern
+                                            .replace('<class>', 'insig')
+                                            .replace('<chrom>', chrom))
+                    df['classification'] = 'constitutive'
+                    tables.append(df)
+                    for c in self.design.columns:
+                        df = load_cluster_table(pattern
+                                                .replace('<class>', c)
+                                                .replace('<chrom>', chrom))
+                        df['classification'] = c
+                        tables.append(df)
+
+                # write to disk
+                sort_cluster_table(pd.concat(tables)).to_csv(outfile, sep='\t')

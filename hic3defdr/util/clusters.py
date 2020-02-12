@@ -10,17 +10,18 @@ from lib5c.util.system import check_outdir
 
 class DirectedDisjointSet(object):
     """
-    Based on https://stackoverflow.com/a/3067672 but with two colors.
+    Based on https://stackoverflow.com/a/3067672 but supporting directed edges.
 
-    The overall effect is like a directed sparse graph - DDS.add(a, b) is like
-    adding an edge from a to b. a gets marked as a source, b does not (anything
-    not in the set DDS.sources is assumed to be a destination). If b is in an
-    existing group, but isn't also the source of any other edge, then the groups
-    won't be merged. Finally, RBDS.get_groups() will be filtered to include only
-    source nodes.
+    The overall effect is like a directed sparse graph - ``DDS.add(a, b)`` is
+    like adding an edge from ``a`` to ``b``. ``a`` gets marked as a source,
+    ``b`` does not (anything not in the set ``DDS.sources`` is assumed to be a
+    destination). If ``b`` is in an existing group, but isn't also the source of
+    any other edge, then the groups won't be merged. Finally, the groups
+    returned by ``DDS.get_groups()`` will be filtered to include only source
+    nodes.
 
-    This is an improved version where destination nodes are not stored anywhere
-    if they haven't previously been seen as a source.
+    This is an "improved" or "streamlined" version where destination nodes are
+    not stored anywhere if they haven't previously been seen as a source.
     """
     def __init__(self):
         self.leader = {}  # maps a member to the group's leader
@@ -262,6 +263,19 @@ def cluster_to_slices(cluster, width=21):
     -------
     slice, slice
         The row and column slice, respectively.
+
+    Examples
+    --------
+    >>> from hic3defdr.util.clusters import cluster_to_slices
+    >>> cluster = [(4, 5),  (3, 4), (3, 5), (3, 6)]
+    >>> width = 5
+    >>> slices = cluster_to_slices(cluster, width=width)
+    >>> slices
+    (slice(1, 6, None), slice(3, 8, None))
+    >>> slices[0].stop - slices[0].start == width
+    True
+    >>> slices[1].stop - slices[1].start == width
+    True
     """
     w = (width - 1) / 2
     r_idx, c_idx = zip(*cluster)
@@ -298,3 +312,77 @@ def filter_clusters_by_distance(clusters, min_dist, max_dist):
     if max_dist is not None:
         dist_idx[dist > max_dist] = False
     return [c for idx, c in zip(dist_idx, clusters) if idx]
+
+
+def cluster_to_loop_id(cluster, chrom, resolution):
+    """
+    Makes a cluster into a loop id of the form "chr:start-end_chr:start-end".
+
+    This is a copy of ``hiclite.util.clusters.make_loop_id_for_cluster()``.
+
+    Parameters
+    ----------
+    cluster : set of tuple of int
+        The tuples should be `(row_index, col_index)` tuples specifying which
+        entries of the chromosomal contact matrix belong to this cluster.
+    chrom : str
+        The chromsome name, e.g. 'chr21'.
+    resolution : int
+        The resolution of the contact matrix referred to by `cluster`.
+
+    Returns
+    -------
+    str
+        The loop id, a string of the form "chr:start-end_chr:start-end".
+
+    Examples
+    --------
+    >>> from hic3defdr.util.clusters import cluster_to_loop_id
+    >>> cluster = [(4, 5),  (3, 4), (3, 5), (3, 6)]
+    >>> cluster_to_loop_id(cluster, 'chrX', 10000)
+    'chrX:30000-50000_chrX:40000-70000'
+    """
+    x_indices, y_indices = zip(*cluster)
+    return '%s:%s-%s_%s:%s-%s' % (
+        chrom,
+        min(x_indices) * resolution,
+        (max(x_indices) + 1) * resolution,
+        chrom,
+        min(y_indices) * resolution,
+        (max(y_indices) + 1) * resolution
+    )
+
+
+def cluster_from_string(cluster_string):
+    """
+    If a cluster gets converted to a string (e.g., when the cluster is written
+    to a text file), this function allows you to recover the cluster as a normal
+    Python object (a list of pairs of integers).
+
+    Parameters
+    ----------
+    cluster_string : str
+        The string representation of the cluster.
+
+    Returns
+    -------
+    list of list of int
+        The inner lists are pairs of integers specifying the row and column
+        indices of the pixels in the cluster.
+
+    Examples
+    --------
+    >>> from hic3defdr.util.clusters import cluster_from_string
+    >>> cluster = [(4, 5), (3, 4), (3, 5), (3, 6)]
+    >>> cluster_string = str(cluster)
+    >>> cluster_string
+    '[(4, 5), (3, 4), (3, 5), (3, 6)]'
+    >>> cluster_from_string(cluster_string)
+    [[4, 5], [3, 4], [3, 5], [3, 6]]
+    """
+    return json.loads(
+        cluster_string.replace('(', '[')
+                      .replace('{', '[')
+                      .replace(')', ']')
+                      .replace('}', ']')
+    )
