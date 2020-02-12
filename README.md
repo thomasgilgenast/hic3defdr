@@ -1,9 +1,9 @@
 hic3defdr
 =========
 
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/hicdefdr.svg)
-[![PyPI - Wheel](https://img.shields.io/pypi/wheel/hicdefdr.svg)](https://pypi.org/project/hicdefdr)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/hicdefdr.svg)](https://pypi.org/project/hicdefdr)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/hic3defdr.svg)
+[![PyPI - Wheel](https://img.shields.io/pypi/wheel/hic3defdr.svg)](https://pypi.org/project/hic3defdr)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/hic3defdr.svg)](https://pypi.org/project/hic3defdr)
 [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/creminslab/3defdr-hic.svg)](https://bitbucket.org/creminslab/3defdr-hic/addon/pipelines/home)
 
 A genome-scale differential loop finder.
