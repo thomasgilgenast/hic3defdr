@@ -227,8 +227,10 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
         delta=delta)
 
     def fit(x_star):
+        x_star = np.asarray(x_star)
         interp_y_hat = interp1d(x, y, bounds_error=False,
-                                fill_value=(y[0], 'extrapolate'))(x_star)
+                                fill_value='extrapolate')(x_star)
+        interp_y_hat[x_star < x[0]] = y[0]
         fit_y_hat = lowess_fn(x_star)
         interp_idx = x_star < x[inc_idx]
         if type(interp_idx) == bool:
