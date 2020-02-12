@@ -4,7 +4,7 @@ from scipy.interpolate import interp1d
 
 from lib5c.util.lowess import lowess
 
-from hic3defdr.util.logging import eprint
+from hic3defdr.util.printing import eprint
 
 
 def lowess_fit(x, y, logx=False, logy=False, left_boundary=None,

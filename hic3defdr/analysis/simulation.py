@@ -7,7 +7,7 @@ import scipy.sparse as sparse
 from lib5c.util.system import check_outdir
 from lib5c.util.statistics import adjust_pvalues
 
-from hic3defdr.util.logging import eprint
+from hic3defdr.util.printing import eprint
 from hic3defdr.util.clusters import load_clusters
 from hic3defdr.util.simulation import simulate
 from hic3defdr.util.evaluation import make_y_true, evaluate

@@ -5,7 +5,7 @@ from scipy.optimize import newton, brentq
 
 from lib5c.util.mathematics import gmean
 
-from hic3defdr.util.logging import eprint
+from hic3defdr.util.printing import eprint
 from hic3defdr.util.progress import tqdm_maybe as tqdm
 
 

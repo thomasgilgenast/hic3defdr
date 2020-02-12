@@ -7,7 +7,7 @@ from lib5c.util.statistics import adjust_pvalues
 
 import hic3defdr.util.scaling as scaling
 import hic3defdr.util.dispersion as dispersion
-from hic3defdr.util.logging import eprint
+from hic3defdr.util.printing import eprint
 from hic3defdr.util.matrices import sparse_union
 from hic3defdr.util.clusters import load_clusters, save_clusters
 from hic3defdr.util.lowess import lowess_fit, weighted_lowess_fit
@@ -434,8 +434,8 @@ class AnalyzingHiC3DeFDR(object):
             sweep in series.
         cluster_size : int or list of int
             The cluster size threshold used to identify clusters of
-            significantly differential pixels via ``threshold_chrom()``. Pass a
-            list to do a sweep in series.
+            significantly differential pixels via ``threshold()``. Pass a list
+            to do a sweep in series.
         n_threads : int
             The number of threads (technically GIL-avoiding child processes) to
             use to process multiple chromosomes in parallel. Pass -1 to use as
