@@ -176,7 +176,8 @@ def weighted_lowess_fit(x, y, logx=False, logy=False, left_boundary=None,
     prec = 1 / var
 
     # apply power to obtain weights
-    weight = np.power(prec, power)
+    weight = np.ones_like(var) * np.nan
+    weight[np.isfinite(prec)] = np.power(prec[np.isfinite(prec)], power)
 
     # scale to make smallest weight 1
     min_weight = np.nanmin(weight)
