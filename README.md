@@ -737,7 +737,7 @@ hic3defdr/                      # package root
     ├── clusters.py             # interacting with called loop clusters
     ├── dispersion.py           # estimating dispersions in NB data
     ├── evaluation.py           # evaluating results of simulations
-    ├── logging.py              # logging updates and info to the console
+    ├── printing.py             # printing updates and info to the console
     ├── lowess.py               # lowess fitting
     ├── lrt.py                  # NB likelihood ratio testing
     ├── matrices.py             # interacting with sparse matrices
