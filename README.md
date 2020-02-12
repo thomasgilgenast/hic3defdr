@@ -121,7 +121,7 @@ size threshold of 3.
     >>> import pandas as pd
     >>> pd.read_csv('output/results_0.05_3.tsv', sep='\t', index_col=0).head()
                                                 us_chrom  ...  classification
-    loop_id                                               ...
+    loop_id                                               ...                
     chr18:3480000-3500000_chr18:4680000-4710000    chr18  ...    constitutive
     chr18:3490000-3510000_chr18:3790000-3810000    chr18  ...              ES
     chr18:3490000-3510000_chr18:3970000-3990000    chr18  ...    constitutive
