@@ -348,7 +348,8 @@ and therefore all support the convenience kwargs provided by that decorator
 
 ### Simple heatmap plotting
 
-    >>> _ = h.plot_heatmap('ES_1', 'chr18', slice(1000, 1100), slice(1000, 1100), outfile='heatmap.png')
+    >>> _ = h.plot_heatmap('ES_1', 'chr18', slice(1000, 1100), slice(1000, 1100),
+    ...                    outfile='heatmap.png')
 
 ![](images/heatmap.png)
 
@@ -365,6 +366,25 @@ zoomins around specific loops:
     >>> _ = h.plot_heatmap('ES_1', chrom, *slices, outfile='zoomin.png')
 
 ![](images/zoomin.png)
+
+### Per-pixel significance plotting
+
+We can pass `stage='qvalues'` to `h.plot_heatmap()` to draw heatmaps showing the
+significance of each pixel:
+
+    >>> _ = h.plot_heatmap(None, 'chr18', slice(1310, 1370), slice(1310, 1370),
+    ...                    stage='qvalues', cmap='bwr_r', vmin=0.099, vmax=0.101,
+    ...                    outfile='heatmap_sig.png')
+
+![](images/heatmap_sig.png)
+
+Note that the `rep` arg is ignored when `stage='qvalues'`.
+
+By passing `cmap='bwr_r'` we ensure that significant, low q-value pixels will be
+red while insignificant, high q-value pixels will be blue. By passing
+`vmin=0.099, vmax=0.101`, we ensure that the colorbar is focused on a narrow
+range around an FDR threshold of 10%, allowing us to more easily tell the
+difference between significant and insignificant pixels.
 
 ### Correlation matrices
 
@@ -389,7 +409,8 @@ variance. You can do this by passing `yaxis='var'`:
 Using the same trick, you can plot the x-axis in terms of mean by passing
 `xaxis='mean'`:
 
-    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var', outfile='mvr.png')
+    >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var',
+    ...                           outfile='mvr.png')
 
 ![](images/mvr.png)
 
@@ -400,7 +421,9 @@ It's also possible to show the dispersion fitted at just one distance scale,
 overlaying the sample mean and sample variance across replicates for each pixel
 as a blue hexbin plot:
 
-    >>> _ = h.plot_dispersion_fit('ES', distance=25, hexbin=True, xaxis='mean', yaxis='var', logx=True, logy=True, outfile='mvr_25.png')
+    >>> _ = h.plot_dispersion_fit('ES', distance=25, hexbin=True, xaxis='mean',
+    ...                           yaxis='var', logx=True, logy=True,
+    ...                           outfile='mvr_25.png')
 
 ![](images/mvr_25.png)
 
@@ -414,8 +437,12 @@ It's possible to compare different dispersion fits using the function
 
     >>> from hic3defdr import compare_disp_fits
     >>>
-    >>> _ = compare_disp_fits([h.load_disp_fn(cond) for cond in h.design.columns],
-    ...                       h.design.columns, max_dist=100, outfile='disp_comparison.png')
+    >>> _ = compare_disp_fits(
+    ...     [h.load_disp_fn(cond) for cond in h.design.columns],
+    ...     h.design.columns,
+    ...     max_dist=100,
+    ...     outfile='disp_comparison.png'
+    ... )
 
 ![](images/disp_comparison.png)
 

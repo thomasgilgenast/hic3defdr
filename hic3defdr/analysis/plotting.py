@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib.colors import ListedColormap
 
 from lib5c.algorithms.correlation import \
     make_pairwise_correlation_matrix_from_counts_matrix
@@ -385,15 +386,15 @@ class PlottingHiC3DeFDR(object):
 
         Parameters
         ----------
-        rep : str
-            The rep to plot.
+        rep : str, optional
+            The rep to plot. Ignored if ``stage`` is 'qvalues'.
         chrom : str
             The chromosome to plot.
         row_slice, col_slice : slice
             The row and column slice, respectively, to plot.
-        stage : {'raw', 'scaled'}
+        stage : {'raw', 'scaled', 'qvalues'}
             The stage of the data to plot.
-        cmap : matplotlib colormap
+        cmap : matplotlib colormap or dict
             The colormap to use for the heatmap.
         vmin, vmax : float
             The vmin and vmax to use for the heatmap colorscale.
@@ -405,10 +406,18 @@ class PlottingHiC3DeFDR(object):
         pyplot axis
             The axis plotted on.
         """
-        rep_idx = self.design.index.tolist().index(rep)
-        row = self.load_data('row', chrom)
-        col = self.load_data('col', chrom)
-        data = self.load_data(stage, chrom)[:, rep_idx]
+        if stage in ['raw', 'scaled']:
+            rep_idx = self.design.index.tolist().index(rep)
+            row = self.load_data('row', chrom)
+            col = self.load_data('col', chrom)
+            data = self.load_data(stage, chrom)[:, rep_idx]
+        elif stage == 'qvalues':
+            rep_idx = self.design.index.tolist().index(rep)
+            disp_idx = self.load_data('disp_idx', chrom)
+            loop_idx = self.load_data('loop_idx', chrom)
+            row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
+            col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
+            data = self.load_data('qvalues', chrom)
         plot_heatmap(row, col, data, row_slice, col_slice, cmap=cmap, vmin=vmin,
                      vmax=vmax, **kwargs)
 
