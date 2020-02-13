@@ -411,7 +411,6 @@ class PlottingHiC3DeFDR(object):
             col = self.load_data('col', chrom)
             data = self.load_data(stage, chrom)[:, rep_idx]
         elif stage == 'qvalues':
-            rep_idx = self.design.index.tolist().index(rep)
             disp_idx = self.load_data('disp_idx', chrom)
             loop_idx = self.load_data('loop_idx', chrom)
             row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
