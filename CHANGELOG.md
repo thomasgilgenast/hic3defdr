@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project attempts to adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+ - The `stage` kwarg of `HiC3DeFDR.plot_heatmap()` can now be 'qvalues',
+   allowing easy plotting of heatmaps showing the significance of each pixel. An
+   example showing how to do this has been added to the README.
+
 ## 0.1.0 - 2020-02-12
 
 ### Added
