@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib.colors import ListedColormap
 
 from lib5c.algorithms.correlation import \
     make_pairwise_correlation_matrix_from_counts_matrix
