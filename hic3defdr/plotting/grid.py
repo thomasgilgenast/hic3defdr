@@ -5,7 +5,7 @@ import seaborn as sns
 from lib5c.util.plotting import plotter
 from lib5c.plotters.colormaps import get_colormap
 
-from hic3defdr.util.matrices import dilate
+from hic3defdr.util.matrices import dilate, select_matrix
 from hic3defdr.util.thresholding import threshold_and_cluster, size_filter
 from hic3defdr.util.clusters import clusters_to_coo
 from hic3defdr.util.classification import classify
@@ -99,20 +99,25 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     bwr = get_colormap('bwr', set_bad='lightgray')
     red = get_colormap('Reds', set_bad='lightgray')
     plot_heatmap(
-        row[disp_idx][loop_idx], col[disp_idx][loop_idx], -np.log10(qvalues),
-        rs, cs, cmap=bwr, vmax=-np.log10(fdr_vmid)*2, ax=ax[-1, 0])
+        select_matrix(rs, cs, row[disp_idx][loop_idx], col[disp_idx][loop_idx],
+                      -np.log10(qvalues)),
+        cmap=bwr, vmax=-np.log10(fdr_vmid)*2, ax=ax[-1, 0]
+    )
     ax[-1, 0].set_title('qvalues')
     for c in range(design.shape[1]):
         plot_heatmap(
-            row, col, mean[:, c], rs, cs, cmap=red, vmax=vmax, ax=ax[c, 0])
+            select_matrix(rs, cs, row, col, mean[:, c]),
+            cmap=red, vmax=vmax, ax=ax[c, 0]
+        )
         ax[c, 0].set_ylabel(design.columns[c])
         ax_idx = 1
         for r in range(design.shape[0]):
             if not design.values[r, c]:
                 continue
             plot_heatmap(
-                row, col, scaled[:, r], rs, cs, cmap=red, vmax=vmax,
-                ax=ax[c, ax_idx])
+                select_matrix(rs, cs, row, col, scaled[:, r]),
+                cmap=red, vmax=vmax, ax=ax[c, ax_idx]
+            )
             ax[c, ax_idx].set_title(design.index[r])
             ax_idx += 1
     ax[0, 0].set_title('mean')
