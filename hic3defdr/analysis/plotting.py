@@ -378,21 +378,23 @@ class PlottingHiC3DeFDR(object):
             **kwargs
         )
 
-    def plot_heatmap(self, rep, chrom, row_slice, col_slice, stage='scaled',
-                     cmap='Reds', vmin=0, vmax=100, **kwargs):
+    def plot_heatmap(self, chrom, row_slice, col_slice, stage='scaled',
+                     rep=None, cond=None, cmap='Reds', vmin=0, vmax=100,
+                     **kwargs):
         """
         Plots a simple heatmap of a slice of the contact matrix.
 
         Parameters
         ----------
-        rep : str, optional
-            The rep to plot. Ignored if ``stage`` is 'qvalues'.
         chrom : str
             The chromosome to plot.
         row_slice, col_slice : slice
             The row and column slice, respectively, to plot.
-        stage : {'raw', 'scaled', 'qvalues'}
+        stage : str
             The stage of the data to plot.
+        rep, cond : str, optional
+            Pass the rep name or condition name if the data specified by
+            ``stage`` has multiple columns.
         cmap : matplotlib colormap or dict
             The colormap to use for the heatmap.
         vmin, vmax : float
@@ -405,19 +407,10 @@ class PlottingHiC3DeFDR(object):
         pyplot axis
             The axis plotted on.
         """
-        if stage in ['raw', 'scaled']:
-            rep_idx = self.design.index.tolist().index(rep)
-            row = self.load_data('row', chrom)
-            col = self.load_data('col', chrom)
-            data = self.load_data(stage, chrom)[:, rep_idx]
-        elif stage == 'qvalues':
-            disp_idx = self.load_data('disp_idx', chrom)
-            loop_idx = self.load_data('loop_idx', chrom)
-            row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
-            col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
-            data = self.load_data('qvalues', chrom)
-        plot_heatmap(row, col, data, row_slice, col_slice, cmap=cmap, vmin=vmin,
-                     vmax=vmax, **kwargs)
+        plot_heatmap(
+            self.get_matrix(
+                stage, chrom, row_slice, col_slice, rep=rep, cond=cond),
+            cmap=cmap, vmin=vmin, vmax=vmax, **kwargs)
 
     def plot_grid(self, chrom, i, j, w, vmax=100, fdr=0.05, cluster_size=3,
                   fdr_vmid=0.05,
@@ -467,8 +460,7 @@ class PlottingHiC3DeFDR(object):
         raw = self.load_data('raw', chrom)
         scaled = self.load_data('scaled', chrom)
         disp_idx = self.load_data('disp_idx', chrom)
-        loop_idx = self.load_data('loop_idx', chrom) \
-            if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
+        loop_idx = self.load_data('loop_idx', chrom)
         mu_hat_alt = self.load_data('mu_hat_alt', chrom)
         mu_hat_null = self.load_data('mu_hat_null', chrom)
         qvalues = self.load_data('qvalues', chrom)

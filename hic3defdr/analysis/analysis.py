@@ -396,12 +396,7 @@ class AnalyzingHiC3DeFDR(object):
             return
         eprint('thresholding and clustering chrom %s' % chrom)
         # load everything
-        disp_idx = self.load_data('disp_idx', chrom)
-        loop_idx = self.load_data('loop_idx', chrom) \
-            if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
-        row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
-        col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
-        qvalues = self.load_data('qvalues', chrom)
+        row, col, qvalues = self.load_data('qvalues', chrom, coo=True)
 
         # upgrade fdr and cluster_size to list
         if not hasattr(fdr, '__len__'):
@@ -470,8 +465,7 @@ class AnalyzingHiC3DeFDR(object):
         eprint('classifying differential interactions on chrom %s' % chrom)
         # load everything
         disp_idx = self.load_data('disp_idx', chrom)
-        loop_idx = self.load_data('loop_idx', chrom) \
-            if self.loop_patterns else np.ones(disp_idx.sum(), dtype=bool)
+        loop_idx = self.load_data('loop_idx', chrom)
         row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
         col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
         mu_hat_alt = self.load_data('mu_hat_alt', chrom, idx=loop_idx)

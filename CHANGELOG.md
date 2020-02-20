@@ -6,12 +6,36 @@ and this project attempts to adhere to [Semantic Versioning](https://semver.org/
 
 ## Unreleased
 
+Streamlined data loading, see [#19](https://bitbucket.org/creminslab/3defdr-hic/issues/19/expose-a-way-to-get-heatmap-data-without).
+
 ### Added
- - The `stage` kwarg of `HiC3DeFDR.plot_heatmap()` can now be 'qvalues',
-   allowing easy plotting of heatmaps showing the significance of each pixel. An
-   example showing how to do this has been added to the README.
+ - A new convenience function `HiC3DeFDR.get_matrix()` which selects a dense
+   matrix slice for any stage of the data in one line.
+ - A new convenience kwarg `coo` on `HiC3DeFDR.load_data()` which (when True)
+   causes the function to return a COO-format `row, col, data` tuple that's
+   guaranteed to be aligned for any stage of the data.
+ - New convenience kwargs `rep` and `cond` on `HiC3DeFDR.load_data()` which
+   allow selecting the right column of rectangular data stages by name
+   automatically (i.e., without having to manually compute `rep_idx` ).
+ - The `stage` kwarg of `HiC3DeFDR.plot_heatmap()` can now be any stage,
+   including 'qvalues'. This allows easy plotting of heatmaps showing the
+   significance of each pixel. An example showing how to do this has been added
+   to the README.
+
+### Changed
+ - The signature of `HiC3DeFDR.plot_heatmap()` has been reworked so that `rep`
+   is now a kwarg instead of the first positional arg.
+ - The signature of `hic3defdr.plotting.heatmap.plot_heatmap()` has been
+   reworked so that it accepts a dense matrix `matrix` as the first positional
+   arg instead of `row, col, data, row_slice, col_slice`. Clients are expected
+   to use `hic3defdr.util.matrix.select_matrix()` to get the dense matrix before
+   calling `plot_heatmap()`.
+ - `HiC3DeFDR.load_data('loop_idx', ...)` now returns a vector of True if
+   ``loop_patterns`` was not passed to the HiC3DeFDR constructor.
 
 ## 0.1.0 - 2020-02-12
+
+Adds a first draft of TSV output tables.
 
 ### Added
  - This changelog!

@@ -1,6 +1,8 @@
 import numpy as np
 import dill as pickle
 
+from hic3defdr.util.matrices import select_matrix
+
 
 class CoreHiC3DeFDR(object):
     """
@@ -57,7 +59,8 @@ class CoreHiC3DeFDR(object):
              (np.any(bias > 1. / self.bias_thresh, axis=1)), :] = 0
         return bias
 
-    def load_data(self, name, chrom=None, idx=None):
+    def load_data(self, name, chrom=None, idx=None, rep=None, cond=None,
+                  coo=False):
         """
         Loads arbitrary data for one chromosome or all chromosomes.
 
@@ -72,17 +75,68 @@ class CoreHiC3DeFDR(object):
         idx : np.ndarray or tuple of np.ndarray, optional
             Pass a boolean array to load only a subset of the data. Pass a tuple
             of exactly two boolean arrays to chain the indices.
+        rep : str, optional
+            If the data is a (pixels, reps) rectangular array, pass the name of
+            a rep to get a (pixels,) vector of data for just that rep.
+        cond : str, optional
+            If the data is a (pixels, conds) rectangular array, pass the name of
+            a condition to get a (pixels,) vector of data for just that
+            condition.
+        coo : bool
+            Pass True to return a COO-format ``(row, col, data)`` tuple of
+            ``np.ndarray``. ``chrom`` cannot be 'all', and ``idx`` must be None
+            (this function will handle filtering automatically).
 
         Returns
         -------
-        data or (concatenated_data, offsets) : np.ndarray
+        data or (concatenated_data, offsets) or (row, col, data) : np.ndarray
             The loaded data for one chromosome, or a tuple of the concatenated
             data and an array of offsets per chromosome. ``offsets`` satisfies
             the following properties: ``offsets[0] == 0``,
             ``offsets[-1] == concatenated_data.shape[0]``, and
             ``concatenated_data[offsets[i]:offsets[i+1], :]`` contains the data
-            for the ``i``th chromosome.
+            for the ``i``th chromosome. If called with ``coo=True``, this
+            function returns a COO-format ``(row, col, data)`` tuple of
+            ``np.ndarray``.
         """
+        # short-circuit when asking for loop_idx when no loop_patterns exist
+        if name == 'loop_idx' and self.loop_patterns is None and idx is None \
+                and chrom != 'all':
+            disp_idx = np.load_data('disp_idx', chrom)
+            return np.ones(disp_idx.sum(), dtype=bool)
+
+        # resolve col_idx
+        col_idx = self.design.index.tolist().index(rep) if rep is not None \
+            else self.design.columns.tolist().index(cond) if cond is not None \
+            else None
+
+        # handle coo
+        if coo:
+            if chrom == 'all' or idx is not None:
+                raise ValueError("cannot pass coo=True with chrom='all' or idx")
+            if name in ['row', 'col', 'bias', 'cov_per_bin', 'disp_per_bin']:
+                raise ValueError('data with name %s cannot be loaded as COO'
+                                 % name)
+            if name in ['raw', 'size_factors', 'scaled', 'disp_idx']:
+                row = self.load_data('row', chrom)
+                col = self.load_data('col', chrom)
+            elif name in ['loop_idx', 'disp', 'mu_hat_null', 'mu_hat_alt',
+                          'llr', 'pvalues']:
+                disp_idx = self.load_data('disp_idx', chrom)
+                row = self.load_data('row', chrom, idx=disp_idx)
+                col = self.load_data('col', chrom, idx=disp_idx)
+            elif name in ['qvalues']:
+                disp_idx = self.load_data('disp_idx', chrom)
+                loop_idx = self.load_data('loop_idx', chrom)
+                row = self.load_data('row', chrom, idx=(disp_idx, loop_idx))
+                col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
+            else:
+                raise ValueError('data name %s not recognized' % name)
+            data = self.load_data(name, chrom)
+            if col_idx is not None:
+                return row, col, data[:, col_idx]
+            return row, col, data
+
         # index chaining
         if type(idx) == tuple:
             big_idx, small_idx = idx
@@ -99,9 +153,15 @@ class CoreHiC3DeFDR(object):
             fname = None
         if fname is not None:
             if idx is None:
-                return np.load(fname)
+                data = np.load(fname)
+                if col_idx is not None:
+                    return data[:, col_idx]
+                return data
             else:
-                return np.load(fname, mmap_mode='r')[idx]
+                data = np.load(fname, mmap_mode='r')
+                if col_idx is not None:
+                    return data[idx, col_idx]
+                return data[idx]
 
         # idx is genome-wide, this tracks where we are in idx so that we can
         # find a subset of idx that aligns with the current chrom
@@ -129,7 +189,10 @@ class CoreHiC3DeFDR(object):
             offset += data.shape[0]
             offsets.append(offset)
             all_data.append(data)
-        return np.concatenate(all_data), np.array(offsets)
+        all_data = np.concatenate(all_data)
+        if col_idx is not None:
+            return all_data[:, col_idx], np.array(offsets)
+        return all_data, np.array(offsets)
 
     def save_data(self, data, name, chrom=None):
         """
@@ -188,3 +251,41 @@ class CoreHiC3DeFDR(object):
         picklefile = '%s/disp_fn_%s.pickle' % (self.outdir, cond)
         with open(picklefile, 'wb') as handle:
             return pickle.dump(disp_fn, handle, -1)
+
+    def get_matrix(self, name, chrom, row_slice, col_slice, rep=None,
+                   cond=None):
+        """
+        Loads data with ``name`` as a dense matrix specified by ``chrom,
+        row_slice, col_slice``.
+
+        Parameters
+        ----------
+        name : str
+            The name (stage) of the data to load. Add a special suffix '_mean'
+            to average per-rep stages within condtiions.
+        chrom : str
+            The chromosome to select data from.
+        row_slice, col_slice : slice
+            Row and column slice to use, respectively.
+        rep, cond : str, optional
+            Pass the rep name or condition name if the data specified by
+            ``name`` has multiple columns.
+
+        Returns
+        -------
+        np.ndarray
+            The selected dense matrix.
+        """
+        if name.endswith('_mean'):
+            reps = self.design[self.design[cond]].index.tolist()
+            return np.mean(
+                [self.get_matrix(name.strip('_mean'), chrom, row_slice,
+                                 col_slice, rep=r)
+                 for r in reps],
+                axis=0
+            )
+        return select_matrix(
+            row_slice,
+            col_slice,
+            *self.load_data(name, chrom, rep=rep, cond=cond, coo=True)
+        )

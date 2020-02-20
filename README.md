@@ -348,10 +348,25 @@ and therefore all support the convenience kwargs provided by that decorator
 
 ### Simple heatmap plotting
 
-    >>> _ = h.plot_heatmap('ES_1', 'chr18', slice(1000, 1100), slice(1000, 1100),
+    >>> _ = h.plot_heatmap('chr18', slice(1000, 1100), slice(1000, 1100), rep='ES_1',
     ...                    outfile='heatmap.png')
 
 ![](images/heatmap.png)
+
+By default, this plots data at the "scaled" stage (normalized for bias and
+sequencing depth differences), but you can plot any stage of the data by passing
+a `stage` kwarg.
+
+### Condition-average heatmap plotting
+
+To plot a within-condition average heatmap, pass a `stage` name with a '_mean'
+suffix appended and `cond` to specify the condition to average within:
+
+    >>> _ = h.plot_heatmap('chr18', slice(1000, 1100), slice(1000, 1100),
+    ...                    stage='scaled_mean', cond='ES',
+    ...                    outfile='heatmap_mean.png')
+
+![](images/heatmap_mean.png)
 
 ### Loop zoomin heatmap plotting
 
@@ -363,7 +378,7 @@ zoomins around specific loops:
     >>> chrom = 'chr18'
     >>> clusters = load_clusters(h.loop_patterns['ES'].replace('<chrom>', chrom))
     >>> slices = cluster_to_slices(clusters[23])
-    >>> _ = h.plot_heatmap('ES_1', chrom, *slices, outfile='zoomin.png')
+    >>> _ = h.plot_heatmap(chrom, *slices, rep='ES_1', outfile='zoomin.png')
 
 ![](images/zoomin.png)
 
@@ -372,13 +387,11 @@ zoomins around specific loops:
 We can pass `stage='qvalues'` to `h.plot_heatmap()` to draw heatmaps showing the
 significance of each pixel:
 
-    >>> _ = h.plot_heatmap(None, 'chr18', slice(1310, 1370), slice(1310, 1370),
+    >>> _ = h.plot_heatmap('chr18', slice(1310, 1370), slice(1310, 1370),
     ...                    stage='qvalues', cmap='bwr_r', vmin=0.099, vmax=0.101,
     ...                    outfile='heatmap_sig.png')
 
 ![](images/heatmap_sig.png)
-
-Note that the `rep` arg is ignored when `stage='qvalues'`.
 
 By passing `cmap='bwr_r'` we ensure that significant, low q-value pixels will be
 red while insignificant, high q-value pixels will be blue. By passing
