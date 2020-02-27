@@ -87,7 +87,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     rs, cs = slice(i - w, i + w + 1), slice(j - w, j + w + 1)
     f = raw[disp_idx] / scaled[disp_idx]
     n = max(row.max(), col.max()) + 1
-    mu_hat_alt = np.dot(mu_hat_alt, design.values.T)
+    mu_hat_alt_wide = np.dot(mu_hat_alt, design.values.T)
     mean = np.dot(scaled, design) / np.sum(design, axis=0).values
 
     # set the color cycle over conditions
@@ -138,7 +138,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     )
     for c in range(design.shape[1]):
         ax[-1, 1].hlines(
-            mu_hat_alt[idx, np.where(design.values[:, c])[0][0]],
+            mu_hat_alt_wide[idx, np.where(design.values[:, c])[0][0]],
             c - 0.1, c + 0.1, color=cc[c % len(cc)],
             label='alt' if c == 0 else None)
         ax[-1, 1].hlines(
@@ -158,7 +158,7 @@ def plot_grid(i, j, w, row, col, raw, scaled, mu_hat_alt, mu_hat_null, qvalues,
     )
     for r in range(design.shape[0]):
         ax[-1, 2].hlines(
-            mu_hat_alt[idx, r] * f[idx, r], r - 0.1, r + 0.1,
+            mu_hat_alt_wide[idx, r] * f[idx, r], r - 0.1, r + 0.1,
             color=cc[np.where(design)[1][r] % len(cc)],
             label='alt' if r == 0 else None)
         ax[-1, 2].hlines(
