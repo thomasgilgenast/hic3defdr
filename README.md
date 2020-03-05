@@ -736,7 +736,7 @@ The `hic3defdr` package is layed out in three parts:
 
 The HiC3DeFDR class includes many methods, so to keep things organized these
 methods are defined in four separate mixin classes which are combined to form
-the full HiC3DeFDR class in `hic3defdr/analysis/__init__.py`:
+the full HiC3DeFDR class in `hic3defdr/analysis/constructor.py`:
 
  - `hic3defdr.analysis.core.CoreHiC3DeFDR`
  - `hic3defdr.analysis.analysis.AnalyzingHiC3DeFDR`
@@ -752,11 +752,11 @@ The complete layout of the package is summarized below:
 
 ```
 hic3defdr/                      # package root
-├── _version.py                 # manages version information using versioneer
+├── _version.py                 # version configuration
 ├── analysis/                   # HiC3DeFDR class and alternatives
-│   ├── __init__.py             # defines HiC3DeFDR class
 │   ├── alternatives.py         # defines alternative analysis models
 │   ├── analysis.py             # HiC3DeFDR's pipeline methods
+│   ├── constructor.py          # HiC3DeFDR's class definition and constructor
 │   ├── core.py                 # HiC3DeFDR's core save/load methods
 │   ├── plotting.py             # HiC3DeFDR's plotting methods
 │   └── simulation.py           # HiC3DeFDR's simulation/evaluation methods
@@ -778,11 +778,11 @@ hic3defdr/                      # package root
     ├── clusters.py             # interacting with called loop clusters
     ├── dispersion.py           # estimating dispersions in NB data
     ├── evaluation.py           # evaluating results of simulations
-    ├── printing.py             # printing updates and info to the console
     ├── lowess.py               # lowess fitting
     ├── lrt.py                  # NB likelihood ratio testing
     ├── matrices.py             # interacting with sparse matrices
     ├── parallelization.py      # parallelizing work across cores
+    ├── printing.py             # printing updates and info to the console
     ├── progress.py             # showing progress bars
     ├── scaled_nb.py            # dealing with scaling factors in NB
     ├── scaling.py              # scaling reps to account for sequencing depth

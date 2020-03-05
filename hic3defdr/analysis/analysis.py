@@ -38,13 +38,15 @@ class AnalyzingHiC3DeFDR(object):
         norm : str
             The method to use to account for differences in sequencing depth.
             Valid options are:
-                * simple_scaling: scale each replicate to equal total depth
-                * median_of_ratios: use median of ratios normalization, ignoring
-                  pixels at which any replicate has a zero
-                * conditional_scaling: apply simple scaling independently at
-                  each distance scale
-                * conditional_mor: apply median of ratios independently at each
-                  distance scale
+
+             - simple_scaling: scale each replicate to equal total depth
+             - median_of_ratios: use median of ratios normalization, ignoring
+               pixels at which any replicate has a zero
+             - conditional_scaling: apply simple scaling independently at
+               each distance scale
+             - conditional_mor: apply median of ratios independently at each
+               distance scale
+
         n_bins : int, optional
             Number of distance bins to use during scaling normalization if
             ``norm`` is one of the conditional options. Pass 0 or None to match
@@ -59,7 +61,7 @@ class AnalyzingHiC3DeFDR(object):
             Pass False to silence reporting of progress to stderr.
         """
         if n_bins == -1:
-            n_bins = self.dist_thresh_max / 5
+            n_bins = int(self.dist_thresh_max / 5)
 
         if chrom is None:
             if n_threads:
@@ -312,13 +314,15 @@ class AnalyzingHiC3DeFDR(object):
         norm : str
             The method to use to account for differences in sequencing depth.
             Valid options are:
-                * simple_scaling: scale each replicate to equal total depth
-                * median_of_ratios: use median of ratios normalization, ignoring
-                  pixels at which any replicate has a zero
-                * conditional_scaling: apply simple scaling independently at
-                  each distance scale
-                * conditional_mor: apply median of ratios independently at each
-                  distance scale
+
+             - simple_scaling: scale each replicate to equal total depth
+             - median_of_ratios: use median of ratios normalization, ignoring
+               pixels at which any replicate has a zero
+             - conditional_scaling: apply simple scaling independently at
+               each distance scale
+             - conditional_mor: apply median of ratios independently at each
+               distance scale
+
         n_bins_norm : int, optional
             Number of distance bins to use during scaling normalization if
             ``norm`` is one of the conditional options. Pass 0 or None to match

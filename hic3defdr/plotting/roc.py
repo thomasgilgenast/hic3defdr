@@ -57,7 +57,8 @@ def plot_roc(eval_results, labels, colors=None, **kwargs):
 
         # annotate thresholds if there's only one curve
         if len(labels) == 1:
-            thresh_idx = np.arange(len(thresh))[slice(1, None, len(thresh)/10)]
+            rate = int(len(thresh) / 10)
+            thresh_idx = np.arange(len(thresh))[slice(1, None, rate)]
             for t in thresh_idx:
                 plt.annotate(
                     '%.2f' % (1 - thresh[t]), xy=(fpr[t], tpr[t]),

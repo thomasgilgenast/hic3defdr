@@ -101,16 +101,16 @@ class SimulatingHiC3DeFDR(object):
 
         # book keeping
         check_outdir('%s/' % outdir)
-        n_sim = size_factors.shape[-1] * 2
-        repnames = sum((['%s%i' % (c, i+1) for i in range(n_sim/2)]
+        n_sim_per_cond = size_factors.shape[-1]
+        repnames = sum((['%s%i' % (c, i+1) for i in range(n_sim_per_cond)]
                         for c in ['A', 'B']), [])
 
         # write design to disk if not present
         design_file = '%s/design.csv' % outdir
         if not os.path.isfile(design_file):
             pd.DataFrame(
-                {'A': [1]*(n_sim/2) + [0]*(n_sim/2),
-                 'B': [0]*(n_sim/2) + [1]*(n_sim/2)},
+                {'A': [1]*n_sim_per_cond + [0]*n_sim_per_cond,
+                 'B': [0]*n_sim_per_cond + [1]*n_sim_per_cond},
                 dtype=bool,
                 index=repnames
             ).to_csv(design_file)

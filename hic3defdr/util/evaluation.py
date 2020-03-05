@@ -73,8 +73,8 @@ def evaluate(y_true, qvalues, n_fdr_points=100):
     y_pred = 1 - qvalues
     fpr, tpr, thresh = roc_curve(y_true, y_pred)
     fdr = np.ones_like(fpr) * np.nan
-    for i in tqdm(range(np.argmax(tpr > 0), len(thresh),
-                        max(len(thresh)/n_fdr_points, 1))):
+    rate = max(int(len(thresh)/n_fdr_points), 1)
+    for i in tqdm(range(np.argmax(tpr > 0), len(thresh), rate)):
         fdr[i] = compute_fdr(y_true, y_pred >= thresh[i])
     return fdr, fpr, tpr, thresh
 

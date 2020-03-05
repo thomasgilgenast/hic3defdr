@@ -1,5 +1,5 @@
 import json
-from itertools import izip
+from builtins import zip
 
 import numpy as np
 import scipy.sparse as sparse
@@ -59,7 +59,7 @@ class DirectedDisjointSet(object):
                 self.group[a] = {a}
 
     def get_groups(self):
-        return self.group.values()
+        return list(self.group.values())
 
 
 def find_clusters(sig_points, connectivity=1):
@@ -85,7 +85,7 @@ def find_clusters(sig_points, connectivity=1):
     ys -= 1
     shifts = [np.array(c) for c in zip(xs, ys)]
     dds = DirectedDisjointSet()
-    for c in izip(spmatrix.row, spmatrix.col):
+    for c in zip(spmatrix.row, spmatrix.col):
         center = np.array(c)
         for shift in shifts:
             dds.add(tuple(center), tuple(center + shift))
@@ -160,13 +160,13 @@ def convert_cluster_array_to_sparse(cluster_array):
         x = cluster_array.tocoo()
     else:
         x = sparse.coo_matrix(cluster_array)
-    for i, j, idx in izip(x.row, x.col, x.data):
+    for i, j, idx in zip(x.row, x.col, x.data):
         if not idx:
             continue
         if idx not in obj:
             obj[int(idx)] = set()
         obj[int(idx)].add((int(i), int(j)))
-    return obj.values()
+    return list(obj.values())
 
 
 def load_clusters(infile):
@@ -277,7 +277,7 @@ def cluster_to_slices(cluster, width=21):
     >>> slices[1].stop - slices[1].start == width
     True
     """
-    w = (width - 1) / 2
+    w = int((width - 1) / 2)
     r_idx, c_idx = zip(*cluster)
     r_center = int(np.mean(r_idx))
     c_center = int(np.mean(c_idx))

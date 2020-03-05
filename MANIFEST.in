@@ -1,2 +1,11 @@
-include versioneer.py
-include hic3defdr/_version.py
+prune docker-slim
+prune docs
+prune images
+exclude _docker.py
+exclude .dockerignore
+exclude .gitattributes
+exclude .gitignore
+exclude .readthedocs.yml
+exclude bitbucket-pipelines.yml
+exclude Dockerfile
+exclude tox.ini

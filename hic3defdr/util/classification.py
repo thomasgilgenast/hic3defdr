@@ -6,6 +6,9 @@ from hic3defdr.util.clusters import find_clusters
 
 def classify(row, col, value, clusters):
     """
+    Classifies pixels (specified by row, col coordinates) into classes
+    (corresponding to the columns of value) where their value is highest,
+    ignoring those pixels that don't belong to the specified clusters.
 
     Parameters
     ----------

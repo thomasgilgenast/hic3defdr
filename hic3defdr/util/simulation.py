@@ -171,11 +171,13 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
 
     eprint('  preparing generator', skip=not verbose)
     n_sim = size_factors.shape[-1]
+    n_sim_per_cond = int(n_sim / 2)
     mean_a = mean_a_coo.data
     mean_b = mean_b_coo.data
 
     def gen():
-        for j, m in zip(range(n_sim), [mean_a]*(n_sim/2) + [mean_b]*(n_sim/2)):
+        for j, m in zip(range(n_sim),
+                        [mean_a]*n_sim_per_cond + [mean_b]*n_sim_per_cond):
             eprint('  biasing and simulating rep %i/%i' % (j+1, n_sim),
                    skip=not verbose)
             # compute aggregate bias factor

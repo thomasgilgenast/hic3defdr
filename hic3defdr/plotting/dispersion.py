@@ -275,8 +275,9 @@ def plot_mvr(pixel_mean, pixel_var=None, pixel_disp=None, pixel_dist=None,
         sort_idx = np.argsort(fit_x) if not fit_align_dist \
             else np.arange(fit_x.shape[0])
         if scatter_fit > 0:
-            plt.scatter(fit_x[sort_idx][::fit_x.shape[0]/scatter_fit],
-                        fit_y[sort_idx][::fit_x.shape[0]/scatter_fit],
+            rate = int(fit_x.shape[0] / scatter_fit)
+            plt.scatter(fit_x[sort_idx][::rate],
+                        fit_y[sort_idx][::rate],
                         label=fit_label, color='C4', s=scatter_size)
         elif scatter_fit == -1:
             plt.plot(fit_x[sort_idx], fit_y[sort_idx],
