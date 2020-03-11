@@ -36,4 +36,4 @@ aligned with rectangular matrices after the `disp_idx` filtering step, such as
 
 A complete table of all the outputs, their expected shapes, and what boolean
 indices are needed to align them to `row` and `col` is provided in the README
-section [Intermediates and final output files](overview/#intermediates-and-final-output-files).
+section "Intermediates and final output files".

@@ -48,7 +48,7 @@ def get_version():
             )
         except ImportError:
             raise ValueError('please install either hic3defdr or '
-                              'setuptools_scm')
+                             'setuptools_scm')
     return version
 
 
