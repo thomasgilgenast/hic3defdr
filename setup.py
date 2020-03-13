@@ -16,8 +16,8 @@ extras_require = {
     'progress': ['tqdm>=4.32.2'],
     'docs': [
         'Sphinx>=1.8.5',
-        'sphinx-rtd-theme<=0.4.3',
-        'sphinxcontrib-apidoc==0.3.0',
+        'sphinx-rtd-theme>=0.4.3',
+        'sphinxcontrib-apidoc>=0.3.0',
         'm2r>=0.2.1',
     ]
 }
