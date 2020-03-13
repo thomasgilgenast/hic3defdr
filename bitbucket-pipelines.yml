@@ -50,7 +50,7 @@ definitions:
           - pip install -U tox
           - tox -e py36-unpinned-readme
         artifacts:
-          - '*.png'
+          - 'images/*.png'
     - step: &testpy27pinnedreadme
         name: Test (py27-pinned-readme)
         caches:
@@ -77,8 +77,7 @@ definitions:
         name: Update README
         script:
           - git checkout -b built/$BITBUCKET_BUILD_NUMBER
-          - mv *.png images/
-          - git add images/*
+          - git add images/*.png
           - git commit -m "updating README images using $BITBUCKET_COMMIT"
           - git push origin built/$BITBUCKET_BUILD_NUMBER
     - step: &pypi
