@@ -1,13 +1,19 @@
-FROM creminslab/lib5c:0.5.4
+FROM python:2.7
 
-# python deps
-COPY requirements.txt .
+# add wget to download data e.g. for tutorial
+RUN apt-get update && apt-get install -y wget && apt-get clean
 
-RUN pip install --no-cache-dir -r requirements.txt
+# install deps
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# application code
+# matplotlib configuration
+ENV MPLBACKEND=agg
+
+# copy and install app code
 ARG VERSION=unknown
-COPY dist/hic3defdr-$VERSION-py2-none-any.whl .
-RUN pip install hic3defdr-$VERSION-py2-none-any.whl
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION
+COPY . /app
+RUN pip install --no-deps /app
 
 ENTRYPOINT bash

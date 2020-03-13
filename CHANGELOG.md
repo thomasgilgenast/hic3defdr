@@ -26,6 +26,7 @@ This version adds Python 3 support!
  - Added Sphinx documentation and readthedocs configuration to build it.
  - Linting, testing, running the README, and building docs are now all handled
    using [tox](https://tox.readthedocs.io/).
+ - Reworked Docker image build, see [creminslab/lib5c#57](https://bitbucket.org/creminslab/lib5c/issues/67).
 
 ## 0.1.1 - 2020-02-27
 
