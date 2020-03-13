@@ -16,8 +16,7 @@ process) and for editable installs (where having setuptools_scm installed is the
 only way to get accurate version information).
 
 When our package is installed, its version (the result of ``get_version()``) can
-be accessed as ``<our_package>.__version__``. This is the version printed when
-``<our_package> -v`` is run on the command line.
+be accessed as ``<our_package>.__version__``.
 
 This module can be run as a script to print version information to stdout.
 """

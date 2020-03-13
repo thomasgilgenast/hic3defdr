@@ -47,6 +47,7 @@ setup(
         'dill>=0.2.9',
         'importlib_metadata>=1.5.0;python_version<"3.8"',
     ],
+    setup_requires=['setuptools_scm'],
     extras_require=extras_require,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
