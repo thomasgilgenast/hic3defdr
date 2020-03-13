@@ -83,7 +83,7 @@ definitions:
     - step: &pypi
         name: PyPI
         script:
-          - pip install docutils==0.14 && pip install twine
+          - pip install twine
           - python setup.py sdist bdist_wheel
           - twine upload -u $PYPI_USERNAME -p $PYPI_PASSWORD dist/*
 
