@@ -18,7 +18,7 @@ extras_require = {
         'Sphinx>=1.8.5',
         'sphinx-rtd-theme<=0.4.3',
         'sphinxcontrib-apidoc==0.3.0',
-        'm2r @ git+https://github.com/miyakogi/m2r',
+        'm2r>=0.2.1',
     ]
 }
 extras_require['complete'] = sorted(set(sum(extras_require.values(), [])))
