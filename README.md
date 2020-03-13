@@ -337,7 +337,7 @@ Visualizations
 
 The `HiC3DeFDR` object can be used to draw visualizations of the analysis.
 
-The visualization functions are wrapped with the [`@plotter` decorator](https://lib5c.readthedocs.io/en/latest/plotting/)
+The visualization functions are wrapped with the [@plotter decorator](https://lib5c.readthedocs.io/en/latest/plotting/)
 and therefore all support the convenience kwargs provided by that decorator
 (such as `outfile`).
 
@@ -806,6 +806,6 @@ Testing
 -------
 
 We run our tests with [tox](https://tox.readthedocs.io). To execute tests,
-install tox (`pip install tox`) and then run `tox` to run all tests or `tox -e
-<testenv>` to run a specific test environment. See `tox.ini` for the full
-specification of all test environments.
+install tox (`pip install tox`) and then run `tox` to run all tests or
+`tox -e <testenv>` to run a specific test environment. See `tox.ini` for the
+full specification of all test environments.
