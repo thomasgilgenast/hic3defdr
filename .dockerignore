@@ -1,3 +1,7 @@
 *
-!dist
+!hic3defdr
+!MANIFEST.in
+!README.md
 !requirements.txt
+!setup.py
+!setup.cfg
