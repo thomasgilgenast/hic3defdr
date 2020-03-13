@@ -1,4 +1,4 @@
 Sphinx==1.8.5
 sphinx-rtd-theme==0.4.3
 sphinxcontrib-apidoc==0.3.0
-m2r @ https://github.com/miyakogi/m2r@66f4a5a500cdd9fc59085106bff082c9cadafaf3
+m2r @ git+https://github.com/miyakogi/m2r@66f4a5a500cdd9fc59085106bff082c9cadafaf3
