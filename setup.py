@@ -33,6 +33,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='Thomas Gilgenast',
+    author_email='thomasgilgenast@gmail.com',
     url='https://bitbucket.org/creminslab/hic3defdr',
     packages=find_packages(),
     install_requires=[
