@@ -41,31 +41,31 @@ definitions:
           script:
             - pip install -U tox
             - tox -e py27-unpinned-readme
-      - step: &testpy36unpinnedreadme
-          name: Test (py36-unpinned-readme)
-          image: python:3.6
-          caches:
-            - pip
-          script:
-            - pip install -U tox
-            - tox -e py36-unpinned-readme
-          artifacts:
-            - '*.png'
-      - step: &testpy27pinnedreadme
-          name: Test (py27-pinned-readme)
-          caches:
-            - pip
-          script:
-            - pip install -U tox
-            - tox -e py27-pinned-readme
-      - step: &testpy36pinnedreadme
-          name: Test (py36-pinned-readme)
-          image: python:3.6
-          caches:
-            - pip
-          script:
-            - pip install -U tox
-            - tox -e py36-pinned-readme
+    - step: &testpy36unpinnedreadme
+        name: Test (py36-unpinned-readme)
+        image: python:3.6
+        caches:
+          - pip
+        script:
+          - pip install -U tox
+          - tox -e py36-unpinned-readme
+        artifacts:
+          - '*.png'
+    - step: &testpy27pinnedreadme
+        name: Test (py27-pinned-readme)
+        caches:
+          - pip
+        script:
+          - pip install -U tox
+          - tox -e py27-pinned-readme
+    - step: &testpy36pinnedreadme
+        name: Test (py36-pinned-readme)
+        image: python:3.6
+        caches:
+          - pip
+        script:
+          - pip install -U tox
+          - tox -e py36-pinned-readme
     - step: &lint
         name: Lint
         caches:
