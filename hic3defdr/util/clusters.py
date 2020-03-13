@@ -1,5 +1,8 @@
 import json
-from builtins import zip
+try:
+    import itertools.izip as zip
+except ImportError:
+    pass
 
 import numpy as np
 import scipy.sparse as sparse

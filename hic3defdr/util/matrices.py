@@ -1,3 +1,5 @@
+from functools import reduce
+
 import numpy as np
 import scipy.sparse as sparse
 from scipy.ndimage import zoom

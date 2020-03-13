@@ -14,13 +14,12 @@ https://bitbucket.org/creminslab/hic3defdr
 Installation
 ------------
 
-We require Python 2.7 and the dependencies listed in `setup.py`.
+We require Python 2.7.11+ or 3.6+ and the dependencies listed in `setup.py`.
 
 A typical quick install process should be:
 
     $ virtualenv venv
     $ source venv/bin/activate
-    (venv)$ python -m pip install -U pip
     (venv)$ pip install hic3defdr
 
 A typical dev-mode install process should be:
@@ -29,7 +28,6 @@ A typical dev-mode install process should be:
     $ cd hic3defdr
     $ virtualenv venv
     $ source venv/bin/activate
-    (venv)$ python -m pip install -U pip
     (venv)$ pip install -e .
 
 If installation succeeded then `hic3defdr.HiC3DeFDR` should be importable from
@@ -48,10 +46,6 @@ Evaluating simulations requires scikit-learn:
 To display progress bars during selected steps of the analysis, install [tqdm](https://github.com/tqdm/tqdm):
 
     (venv)$ pip install tqdm
-
-To execute tests, install the following:
-
-    (venv)$ pip install nose nose-exclude flake8
 
 Basic walkthrough
 -----------------
@@ -77,8 +71,15 @@ chromosome names, and a design matrix. We will just analyze chromosomes 18 and
 
 If you're following along, you can download the data like this:
 
-    $ mkdir -p ~/data/bonev
-    $ wget -qO- -O tmp.zip https://www.dropbox.com/sh/mq0fpnp4jz59wpo/AAD2FW1Tp_mVKCkxlJoZvxC8a?dl=1 && unzip tmp.zip -x / -d ~/data/bonev && rm tmp.zip
+    $ python -m hic3defdr.util.demo_data
+
+or from inside an interactive shell:
+
+    >>> from hic3defdr.util.demo_data import ensure_demo_data
+    >>> ensure_demo_data()
+
+The data will be downloaded to a folder called `hic3defdr-demo-data` under your
+home directory.
 
 The required input files consist of:
 
@@ -96,7 +97,7 @@ construct a `HiC3DeFDR` object:
     >>> import os.path
     >>> from hic3defdr import HiC3DeFDR
     >>>
-    >>> base_path = os.path.expanduser('~/data/bonev/')
+    >>> base_path = os.path.expanduser('~/hic3defdr-demo-data/')
     >>> h = HiC3DeFDR(
     ...     raw_npz_patterns=[base_path + '<rep>/<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
     ...     bias_patterns=[base_path + '<rep>/<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
@@ -342,14 +343,14 @@ and therefore all support the convenience kwargs provided by that decorator
 
 ### Distance dependence curves before and after scaling
 
-    >>> _ = h.plot_dd_curves('chr18', outfile='dd.png')
+    >>> _ = h.plot_dd_curves('chr18', outfile='images/dd.png')
 
 ![](images/dd.png)
 
 ### Simple heatmap plotting
 
     >>> _ = h.plot_heatmap('chr18', slice(1000, 1100), slice(1000, 1100), rep='ES_1',
-    ...                    outfile='heatmap.png')
+    ...                    outfile='images/heatmap.png')
 
 ![](images/heatmap.png)
 
@@ -364,7 +365,7 @@ suffix appended and `cond` to specify the condition to average within:
 
     >>> _ = h.plot_heatmap('chr18', slice(1000, 1100), slice(1000, 1100),
     ...                    stage='scaled_mean', cond='ES',
-    ...                    outfile='heatmap_mean.png')
+    ...                    outfile='images/heatmap_mean.png')
 
 ![](images/heatmap_mean.png)
 
@@ -378,7 +379,7 @@ zoomins around specific loops:
     >>> chrom = 'chr18'
     >>> clusters = load_clusters(h.loop_patterns['ES'].replace('<chrom>', chrom))
     >>> slices = cluster_to_slices(clusters[23])
-    >>> _ = h.plot_heatmap(chrom, *slices, rep='ES_1', outfile='zoomin.png')
+    >>> _ = h.plot_heatmap(chrom, *slices, rep='ES_1', outfile='images/zoomin.png')
 
 ![](images/zoomin.png)
 
@@ -389,7 +390,7 @@ significance of each pixel:
 
     >>> _ = h.plot_heatmap('chr18', slice(1310, 1370), slice(1310, 1370),
     ...                    stage='qvalues', cmap='bwr_r', vmin=0.099, vmax=0.101,
-    ...                    outfile='heatmap_sig.png')
+    ...                    outfile='images/heatmap_sig.png')
 
 ![](images/heatmap_sig.png)
 
@@ -401,13 +402,13 @@ difference between significant and insignificant pixels.
 
 ### Correlation matrices
 
-    >>> _ = h.plot_correlation_matrix(outfile='correlation.png')
+    >>> _ = h.plot_correlation_matrix(outfile='images/correlation.png')
 
 ![](images/correlation.png)
 
 ### Dispersion fitting
 
-    >>> _ = h.plot_dispersion_fit('ES', outfile='ddr.png')
+    >>> _ = h.plot_dispersion_fit('ES', outfile='images/ddr.png')
 
 ![](images/ddr.png)
 
@@ -415,7 +416,7 @@ It's possible to use the the one-dimensional distance dependence curve to
 convert distances to means. Doing so allows plotting the y-axis in terms of
 variance. You can do this by passing `yaxis='var'`:
 
-    >>> _ = h.plot_dispersion_fit('ES', yaxis='var', outfile='dvr.png')
+    >>> _ = h.plot_dispersion_fit('ES', yaxis='var', outfile='images/dvr.png')
 
 ![](images/dvr.png)
 
@@ -423,7 +424,7 @@ Using the same trick, you can plot the x-axis in terms of mean by passing
 `xaxis='mean'`:
 
     >>> _ = h.plot_dispersion_fit('ES', xaxis='mean', yaxis='var',
-    ...                           outfile='mvr.png')
+    ...                           outfile='images/mvr.png')
 
 ![](images/mvr.png)
 
@@ -436,7 +437,7 @@ as a blue hexbin plot:
 
     >>> _ = h.plot_dispersion_fit('ES', distance=25, hexbin=True, xaxis='mean',
     ...                           yaxis='var', logx=True, logy=True,
-    ...                           outfile='mvr_25.png')
+    ...                           outfile='images/mvr_25.png')
 
 ![](images/mvr_25.png)
 
@@ -454,14 +455,14 @@ It's possible to compare different dispersion fits using the function
     ...     [h.load_disp_fn(cond) for cond in h.design.columns],
     ...     h.design.columns,
     ...     max_dist=100,
-    ...     outfile='disp_comparison.png'
+    ...     outfile='images/disp_comparison.png'
     ... )
 
 ![](images/disp_comparison.png)
 
 ### P-value distribution
 
-    >>> _ = h.plot_pvalue_distribution(outfile='pvalue_dist.png')
+    >>> _ = h.plot_pvalue_distribution(outfile='images/pvalue_dist.png')
 
 ![](images/pvalue_dist.png)
 
@@ -471,19 +472,19 @@ loops, pass `idx='loop'`.
 
 ### Q-value distribution
 
-    >>> _ = h.plot_qvalue_distribution(outfile='qvalue_dist.png')
+    >>> _ = h.plot_qvalue_distribution(outfile='images/qvalue_dist.png')
 
 ![](images/qvalue_dist.png)
 
 ### MA plot
 
-    >>> _ = h.plot_ma(outfile='ma.png')
+    >>> _ = h.plot_ma(outfile='images/ma.png')
 
 ![](images/ma.png)
 
 ### Pixel detail grid
 
-    >>> _ = h.plot_grid('chr18', 2218, 2236, 20, outfile='grid.png')
+    >>> _ = h.plot_grid('chr18', 2218, 2236, 20, outfile='images/grid.png')
 
 ![](images/grid.png)
 
@@ -580,16 +581,16 @@ In order to run HiC3DeFDR on the simulated data, we first need to balance the
 simulated raw contact matrices to obtain bias vectors for each simulated
 replicate and chromosome. We will assume are saved next to the raw contact
 matrices and named `<rep>_<chrom>_kr.bias`. One example of how this can be done
-is to use the [hiclite library](https://bitbucket.org/creminslab/hiclite) and
-the following script:
+is shown in the following script:
 
     >>> import sys
     >>>
     >>> import numpy as np
     >>> import scipy.sparse as sparse
     >>>
-    >>> from hiclite.steps.filter import filter_sparse_rows_count
-    >>> from hiclite.steps.balance import kr_balance
+    >>> from hic3defdr.util.filtering import filter_sparse_rows_count
+    >>> from hic3defdr.util.balancing import kr_balance
+    >>> from hic3defdr.util.printing import eprint
     >>>
     >>>
     >>> infile_pattern = 'sim/<rep>_<chrom>_raw.npz'
@@ -598,7 +599,7 @@ the following script:
     >>>
     >>> for repname in repnames:
     ...     for chrom in chroms:
-    ...         sys.stderr.write('balancing rep %s chrom %s\n' % (repname, chrom))
+    ...         eprint('balancing rep %s chrom %s' % (repname, chrom))
     ...         infile = infile_pattern.replace('<rep>', repname)\
     ...             .replace('<chrom>', chrom)
     ...         outfile = infile.replace('_raw.npz', '_kr.bias')
@@ -615,7 +616,7 @@ analysis through to q-values:
     >>> repnames = ['A1', 'A2', 'B1', 'B2']
     >>> chroms = ['chr18', 'chr19']
     >>> sim_path = 'sim/'
-    >>> base_path = os.path.expanduser('~/data/bonev/')
+    >>> base_path = os.path.expanduser('~/hic3defdr-demo-data/')
     >>> h_sim = HiC3DeFDR(
     ...     raw_npz_patterns=[sim_path + '<rep>_<chrom>_raw.npz'.replace('<rep>', repname) for repname in repnames],
     ...     bias_patterns=[sim_path + '<rep>_<chrom>_kr.bias'.replace('<rep>', repname) for repname in repnames],
@@ -648,8 +649,8 @@ FDR control curves by running:
     >>> import numpy as np
     >>> from hic3defdr import plot_roc, plot_fdr
     >>>
-    >>> _ = plot_roc([np.load('output-sim/eval.npz')], ['hic3defdr'], outfile='roc.png')
-    >>> _ = plot_fdr([np.load('output-sim/eval.npz')], ['hic3defdr'], outfile='fdr.png')
+    >>> _ = plot_roc([np.load('output-sim/eval.npz')], ['hic3defdr'], outfile='images/roc.png')
+    >>> _ = plot_fdr([np.load('output-sim/eval.npz')], ['hic3defdr'], outfile='images/fdr.png')
 
 ![](images/roc.png)
 ![](images/fdr.png)
@@ -681,11 +682,11 @@ subsets of distance scales by using the `min_dist` and `max_dist` kwargs on
     >>> _ = plot_roc([np.load('output-sim/eval_%s_%s.npz' % (min_dist, max_dist))
     ...               for _, (min_dist, max_dist) in dist_bins],
     ...              [label for label, _ in dist_bins],
-    ...              outfile='roc_by_dist.png')
+    ...              outfile='images/roc_by_dist.png')
     >>> _ = plot_fdr([np.load('output-sim/eval_%s_%s.npz' % (min_dist, max_dist))
     ...               for _, (min_dist, max_dist) in dist_bins],
     ...              [label for label, _ in dist_bins],
-    ...              outfile='fdr_by_dist.png')
+    ...              outfile='images/fdr_by_dist.png')
 
 ![](images/roc_by_dist.png)
 ![](images/fdr_by_dist.png)
@@ -697,7 +698,7 @@ It's also possible to compare the FPR and FNR at the different subsets:
     >>> _ = plot_fn_vs_fp([np.load('output-sim/eval_%s_%s.npz' % (min_dist, max_dist))
     ...                    for _, (min_dist, max_dist) in dist_bins],
     ...                   [label for label, _ in dist_bins], xlabel='distance subset',
-    ...                   outfile='fn_vs_fp.png')
+    ...                   outfile='images/fn_vs_fp.png')
 
 ![](images/fn_vs_fp.png)
 
@@ -717,7 +718,7 @@ scales) using the `plot_distance_bias()` function as shown below:
     ...    ('mid', (16, 30)),
     ...    ('long', (31, None))
     ... ]
-    >>> _ = plot_distance_bias([h, h_sim], [b for _, b in dist_bins], labels=['real', 'sim'], outfile='distance_bias.png')
+    >>> _ = plot_distance_bias([h, h_sim], [b for _, b in dist_bins], labels=['real', 'sim'], outfile='images/distance_bias.png')
 
 ![](images/distance_bias.png)
 
@@ -773,11 +774,15 @@ hic3defdr/                      # package root
 │   └── roc.py                  # ROC curve plots
 └── util/                       # library of utility functions 
     ├── binning.py              # creating groups of points
+    ├── balancing.py            # KR matrix balancing
+    ├── banded_matrix.py        # BandedMatrix class (used for filtering)
     ├── classification.py       # classifying differential loop pixels
     ├── cluster_table.py        # creating tables summarizing cluster info
     ├── clusters.py             # interacting with called loop clusters
+    ├── demo_data.py            # utilities for downloading the demo dataset
     ├── dispersion.py           # estimating dispersions in NB data
     ├── evaluation.py           # evaluating results of simulations
+    ├── filtering.py            # filtering (applied before balancing)
     ├── lowess.py               # lowess fitting
     ├── lrt.py                  # NB likelihood ratio testing
     ├── matrices.py             # interacting with sparse matrices
@@ -796,3 +801,11 @@ Additional options
 Additional options are exposed as kwargs on the functions in this library. Use
 `help(<function>)` to get detailed information about the options available for
 any function and what these options may be used for.
+
+Testing
+-------
+
+We run our tests with [tox](https://tox.readthedocs.io). To execute tests,
+install tox (`pip install tox`) and then run `tox` to run all tests or `tox -e
+<testenv>` to run a specific test environment. See `tox.ini` for the full
+specification of all test environments.

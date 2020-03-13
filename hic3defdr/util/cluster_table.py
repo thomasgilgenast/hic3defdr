@@ -112,15 +112,15 @@ def sort_cluster_table(cluster_table):
     >>> df4 = clusters_to_table(clusters, 'chrX', res)
     >>> df = pd.concat([df4, df3, df2, df1], axis=0)
     >>> sort_cluster_table(df).index
-    Index([u'chr1:10000-20000_chr1:10000-30000',
-           u'chr1:30000-50000_chr1:40000-50000',
-           u'chr2:10000-20000_chr2:10000-30000',
-           u'chr2:30000-50000_chr2:40000-50000',
-           u'chr11:10000-20000_chr11:10000-30000',
-           u'chr11:30000-50000_chr11:40000-50000',
-           u'chrX:10000-20000_chrX:10000-30000',
-           u'chrX:30000-50000_chrX:40000-50000'],
-          dtype='object', name=u'loop_id')
+    Index(['chr1:10000-20000_chr1:10000-30000',
+           'chr1:30000-50000_chr1:40000-50000',
+           'chr2:10000-20000_chr2:10000-30000',
+           'chr2:30000-50000_chr2:40000-50000',
+           'chr11:10000-20000_chr11:10000-30000',
+           'chr11:30000-50000_chr11:40000-50000',
+           'chrX:10000-20000_chrX:10000-30000',
+           'chrX:30000-50000_chrX:40000-50000'],
+          dtype='object', name='loop_id')
     """
     # these are the six BED-like columns
     sort_order = COLUMN_ORDER[1:7]
@@ -170,15 +170,15 @@ def load_cluster_table(table_filename):
 
     Examples
     --------
-    >>> from io import BytesIO as StringIO
+    >>> from tempfile import TemporaryFile
     >>> from hic3defdr.util.cluster_table import clusters_to_table, \
     ...     load_cluster_table
     >>> clusters = [[(1, 2), (1, 1)], [(4, 4),  (3, 4)]]
     >>> df = clusters_to_table(clusters, 'chrX', 10000)
-    >>> s = StringIO()  # simulates a file on disk
-    >>> df.to_csv(s, sep='\t')
-    >>> position = s.seek(0)
-    >>> loaded_df = load_cluster_table(s)
+    >>> f = TemporaryFile(mode='w+')  # simulates a file on disk
+    >>> df.to_csv(f, sep='\t')
+    >>> position = f.seek(0)
+    >>> loaded_df = load_cluster_table(f)
     >>> df.equals(loaded_df)
     True
     >>> loaded_df['cluster'][0]
@@ -263,12 +263,12 @@ def add_columns_to_cluster_table(cluster_table, name_pattern, row, col,
     >>> add_columns_to_cluster_table(df, '%s_mean', row, col, data,
     ...                              labels=['rep1', 'rep2'], chrom='chr1')
     >>> # chr1 cluster has data filled in
-    >>> df.ix[0, ['rep1_mean', 'rep2_mean']]
+    >>> df.loc[df.index[0], ['rep1_mean', 'rep2_mean']]
     rep1_mean    2
     rep2_mean    3
     Name: chr1:10000-20000_chr1:10000-30000, dtype: object
     >>> # chr2 cluster has nans
-    >>> df.ix[2, ['rep1_mean', 'rep2_mean']]
+    >>> df.loc[df.index[2], ['rep1_mean', 'rep2_mean']]
     rep1_mean    NaN
     rep2_mean    NaN
     Name: chr2:10000-20000_chr2:10000-30000, dtype: object
@@ -276,7 +276,7 @@ def add_columns_to_cluster_table(cluster_table, name_pattern, row, col,
     >>> add_columns_to_cluster_table(df, '%s_mean', row, col, data[::-1, :],
     ...                              labels=['rep1', 'rep2'], chrom='chr2')
     >>> # now the chr2 clusters have data
-    >>> df.ix[2, ['rep1_mean', 'rep2_mean']]
+    >>> df.loc[df.index[2], ['rep1_mean', 'rep2_mean']]
     rep1_mean    6
     rep2_mean    7
     Name: chr2:10000-20000_chr2:10000-30000, dtype: object

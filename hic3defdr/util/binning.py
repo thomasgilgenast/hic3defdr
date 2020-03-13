@@ -21,5 +21,5 @@ def equal_bin(data, n_bins):
         A vector of integers representing the bin index for each entry in
         ``data``.
     """
-    idx = np.linspace(0, n_bins, data.size+0.5, endpoint=0).astype(int)
+    idx = np.linspace(0, n_bins, data.size, endpoint=0, dtype=int)
     return idx[data.argsort().argsort()]

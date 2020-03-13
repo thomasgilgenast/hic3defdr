@@ -116,7 +116,7 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     Returns
     -------
     classes : np.ndarray
-        Vector of ground-truth class labels used for simulation with '\|S25'
+        Vector of ground-truth class labels used for simulation with 'U7'
         dtype.
     gen : generator of ``scipy.sparse.csr_matrix``
         Generates the simulated raw contact matrices for each simulated
@@ -126,7 +126,7 @@ def simulate(row, col, mean, disp_fn, bias, size_factors, clusters, beta=0.5,
     p = [1 - p_diff, p_diff/4, p_diff/4, p_diff/4, p_diff/4] \
         if type(p_diff) == float else [1 - sum(p_diff)] + list(p_diff)
     classes = np.random.choice(
-        np.array(['constit', 'up A', 'down A', 'up B', 'down B'], dtype='|S7'),
+        np.array(['constit', 'up A', 'down A', 'up B', 'down B'], dtype='U7'),
         size=len(clusters), p=p)
 
     # adjust indexing to make mean nonzero

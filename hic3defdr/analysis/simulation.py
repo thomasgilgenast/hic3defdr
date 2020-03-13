@@ -160,7 +160,7 @@ class SimulatingHiC3DeFDR(object):
             File path pattern to true label files for each chromosome. Should
             contain at least one '<chrom>' which will be replaced with the
             chromosome name when loading data for specific chromosomes. Files
-            should be loadable with ``np.loadtxt(..., dtype='|S7')`` to yield a
+            should be loadable with ``np.loadtxt(..., dtype='U7')`` to yield a
             vector of true labels parallel to the clusters pointed to by
             ``cluster_pattern``.
         min_dist, max_dist : int, optional
@@ -201,7 +201,7 @@ class SimulatingHiC3DeFDR(object):
             col = self.load_data('col', chrom, idx=(disp_idx, loop_idx))
             clusters = load_clusters(cluster_pattern.replace('<chrom>', chrom))
             labels = np.loadtxt(label_pattern.replace('<chrom>', chrom),
-                                dtype='|S7')
+                                dtype='U7')
 
             # construct dist_idx
             dist = col - row

@@ -16,3 +16,4 @@ docs_build
 docs/images
 docs/hic3defdr*.rst
 docs/modules.rst
+.tox

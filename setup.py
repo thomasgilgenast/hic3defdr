@@ -7,13 +7,18 @@ with open('README.md') as fobj:
 
 extras_require = {
     'evaluation': ['scikit-learn>=0.20.3'],
-    'test': ['nose>=1.3.7', 'nose-exclude>=0.5.0', 'flake8>=3.4.1'],
+    'test': [
+        'nose>=1.3.7',
+        'nose-exclude>=0.5.0',
+        'doctest-ignore-unicode>=0.1.2',
+        'flake8>=3.4.1',
+    ],
     'progress': ['tqdm>=4.32.2'],
     'docs': [
         'Sphinx>=1.8.5',
         'sphinx-rtd-theme<=0.4.3',
         'sphinxcontrib-apidoc==0.3.0',
-        'm2r @ git+https://github.com/miyakogi/m2r'
+        'm2r @ git+https://github.com/miyakogi/m2r',
     ]
 }
 extras_require['complete'] = sorted(set(sum(extras_require.values(), [])))
@@ -37,7 +42,7 @@ setup(
         'mpl_scatter_density>=0.6',
         'seaborn>=0.8.0',
         'pandas>=0.21.0',
-        'lib5c>=0.5.3',
+        'lib5c>=0.6.0',
         'dill>=0.2.9',
         'importlib_metadata>=1.5.0;python_version<"3.8"',
     ],
