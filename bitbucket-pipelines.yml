@@ -38,6 +38,7 @@ definitions:
           name: Test (py27-unpinned-readme)
           caches:
             - pip
+            - data
           script:
             - pip install -U tox
             - tox -e py27-unpinned-readme
@@ -46,6 +47,7 @@ definitions:
         image: python:3.6
         caches:
           - pip
+          - data
         script:
           - pip install -U tox
           - tox -e py36-unpinned-readme
@@ -55,6 +57,7 @@ definitions:
         name: Test (py27-pinned-readme)
         caches:
           - pip
+          - data
         script:
           - pip install -U tox
           - tox -e py27-pinned-readme
@@ -63,6 +66,7 @@ definitions:
         image: python:3.6
         caches:
           - pip
+          - data
         script:
           - pip install -U tox
           - tox -e py36-pinned-readme
