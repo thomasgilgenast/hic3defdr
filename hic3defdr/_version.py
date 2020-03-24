@@ -44,7 +44,7 @@ def get_version():
             version_scheme=version_scheme,
             local_scheme=local_scheme
         )
-    except ImportError:
+    except (ImportError, LookupError):
         try:
             try:
                 # this works in Python 3.8
