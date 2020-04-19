@@ -51,7 +51,7 @@ Use ``sparse_union`` to identify the union pixel set:
 
     >>> rep_npzs = ['rep1.npz', 'rep2.npz']
     >>> row, col = sparse_union(rep_npzs, dist_thresh=2)
-    >>> zip(row, col)
+    >>> list(zip(row, col))
     [(0, 1), (0, 2), (1, 1), (1, 2), (2, 2), (2, 3), (3, 3)]
 
 Notice that pixels (0, 0) and (1, 3) are not in the union pixel set. This is
@@ -80,7 +80,7 @@ If we want to know the interaction distance for each pixel (each row of
 
     >>> dist = col - row
     >>> dist
-    array([1, 2, 0, 1, 0, 1, 0])
+    array([1, 2, 0, 1, 0, 1, 0], dtype=int32)
 
 To clean up, we will delete the npz's we created.:
 
