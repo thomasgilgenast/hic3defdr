@@ -5,6 +5,7 @@ except ImportError:
     pass
 
 import numpy as np
+import pandas as pd
 import scipy.sparse as sparse
 from scipy.ndimage import generate_binary_structure
 
@@ -389,3 +390,40 @@ def cluster_from_string(cluster_string):
                       .replace(')', ']')
                       .replace('}', ']')
     )
+
+
+def hiccups_to_clusters(hiccups_txt, resolution):
+    """
+    Loads HiCCUPS-format loop calls as clusters, approximating each loop as a
+    cluster with just one pixel.
+
+    Parameters
+    ----------
+    hiccups_txt : str
+        The HiCCUPS-format loop call file to load.
+    resolution : int
+        The resolution to use for the clusters.
+
+    Returns
+    -------
+    dict of list of clusters The keys of the dict are chromosome names as
+        strings. The values are lists of clusters on that chromosome. Each
+        clusters is a list of [x, y] pairs representing the row and column
+        indices of the pixels in that cluster.
+    """
+    # load table from disk
+    df = pd.read_csv(hiccups_txt, sep='\t')
+
+    # we will approximate each loop as a cluster with one pixel
+    df['centroid1rounded'] = (df['centroid1'] / resolution).astype(int)
+    df['centroid2rounded'] = (df['centroid2'] / resolution).astype(int)
+
+    clusters = {}
+    for chrom in df['chr1'].unique():
+        subset = df[(df['chr1'] == chrom) & (df['chr2'] == chrom)]
+        clusters['chr%s' % chrom if 'chr' not in chrom else chrom] = [
+            [tuple(v)]
+            for v in subset[['centroid1rounded', 'centroid2rounded']].values
+        ]
+
+    return clusters

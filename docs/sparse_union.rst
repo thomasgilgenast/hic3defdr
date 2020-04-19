@@ -68,12 +68,12 @@ Finally, we can construct the ``data`` matrix:
     ...     data[:, i] = sparse.load_npz(rep_npzs[i]).tocsr()[row, col]
     >>> data
     array([[0., 1.],
-        [3., 3.],
-        [6., 0.],
-        [5., 0.],
-        [0., 4.],
-        [2., 2.],
-        [7., 3.]])
+           [3., 3.],
+           [6., 0.],
+           [5., 0.],
+           [0., 4.],
+           [2., 2.],
+           [7., 3.]])
 
 If we want to know the interaction distance for each pixel (each row of
 ``data``), we can calculate:
@@ -81,3 +81,9 @@ If we want to know the interaction distance for each pixel (each row of
     >>> dist = col - row
     >>> dist
     array([1, 2, 0, 1, 0, 1, 0])
+
+To clean up, we will delete the npz's we created.:
+
+    >>> import os
+    >>> for f in rep_npzs:
+    ...     os.remove(f)
