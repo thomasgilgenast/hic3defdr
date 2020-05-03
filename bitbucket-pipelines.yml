@@ -53,6 +53,15 @@ definitions:
           - tox -e py36-unpinned-readme
         artifacts:
           - 'images/*.png'
+    - step: &testpy36unpinnedreadmenoartifacts
+        name: Test (py36-unpinned-readme)
+        image: python:3.6
+        caches:
+          - pip
+          - data
+        script:
+          - pip install -U tox
+          - tox -e py36-unpinned-readme
     - step: &testpy27pinnedreadme
         name: Test (py27-pinned-readme)
         caches:
@@ -117,7 +126,7 @@ pipelines:
         - step: *testpy36pinnednose
       - parallel: &readme
         - step: *testpy27unpinnedreadme
-        - step: *testpy36unpinnedreadme
+        - step: *testpy36unpinnedreadmenoartifacts
         - step: *testpy27pinnedreadme
         - step: *testpy36pinnedreadme
       - step: *pypi
