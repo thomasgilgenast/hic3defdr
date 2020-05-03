@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project attempts to adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.1 - 2020-05-03
+
+### Added
+ - A license (MIT).
+ - Utilty functions for APA plots in `hic3defdr.util.apa` with a corresponding
+   demo in `docs/apa.rst`.
+ - Utility function for importing loop calls from HiCCUPS in
+   `hic3defdr.util.clusters.hiccups_to_clusters()`.
+
+### Updates/maintenance
+ - Demos now run as tests within the readme tox environments.
+ - Release pipeline no longer creates any artifacts, see comments on [this commit](https://bitbucket.org/creminslab/hic3defdr/commits/df8ff2a).
+
 ## 0.2.0 - 2020-03-13
 
 This version adds Python 3 support!
@@ -87,6 +100,7 @@ First official release, corresponds to what was used in the second submission of
 the related manuscript.
 
 ## Diffs
+- [0.2.1](https://bitbucket.org/creminslab/hic3defdr/branches/compare/0.2.1..0.2.0#diff)
 - [0.2.0](https://bitbucket.org/creminslab/hic3defdr/branches/compare/0.2.0..0.1.1#diff)
 - [0.1.1](https://bitbucket.org/creminslab/hic3defdr/branches/compare/0.1.1..0.1.0#diff)
 - [0.1.0](https://bitbucket.org/creminslab/hic3defdr/branches/compare/0.1.0..0.0.9#diff)
