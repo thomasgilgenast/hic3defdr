@@ -1,11 +1,11 @@
-3DeFDR-HiC
+hic3defdr
 =========
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/hic3defdr.svg)
 ![PyPI - License](https://img.shields.io/pypi/l/hic3defdr)
 [![PyPI - Wheel](https://img.shields.io/pypi/wheel/hic3defdr.svg)](https://pypi.org/project/hic3defdr)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/hic3defdr.svg)](https://pypi.org/project/hic3defdr)
-[![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/creminslab/3defdr-hic.svg)](https://bitbucket.org/creminslab/3defdr-hic/addon/pipelines/home)
+[![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/creminslab/hic3defdr.svg)](https://bitbucket.org/creminslab/hic3defdr/addon/pipelines/home)
 [![Read the Docs (version)](https://img.shields.io/readthedocs/hic3defdr/stable.svg)](https://hic3defdr.readthedocs.io/en/stable)
 
 A genome-scale differential loop finder.
@@ -13,7 +13,9 @@ A genome-scale differential loop finder.
 For the latest source, discussion, etc, please visit the Bitbucket repository at
 https://bitbucket.org/creminslab/hic3defdr
 
-The method is named 3DeFDR-HiC from the Gilgenast_Fernandez_Cremins manuscript, and it is linked to the coding package hic3defdr below.
+This is the repository for hic3defdr, a Python package that provides an
+implementation of the 3DeFDR-HiC differential loop calling method proposed in a
+manuscript currently under review.
 
 Installation
 ------------
