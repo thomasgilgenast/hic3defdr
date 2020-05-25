@@ -1,4 +1,4 @@
-hic3defdr
+3DeFDR-HiC
 =========
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/hic3defdr.svg)
@@ -12,6 +12,8 @@ A genome-scale differential loop finder.
 
 For the latest source, discussion, etc, please visit the Bitbucket repository at
 https://bitbucket.org/creminslab/hic3defdr
+
+The method is named 3DeFDR-HiC from the Gilgenast_Fernandez_Cremins manuscript, and it is linked to the coding package hic3defdr below.
 
 Installation
 ------------
