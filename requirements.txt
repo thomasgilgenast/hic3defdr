@@ -35,6 +35,6 @@ singledispatch==3.4.0.3
 six==1.14.0
 statsmodels==0.10.2
 subprocess32==3.5.4
-tornado==5.1.1
+tornado==6.3.2
 tqdm==4.43.0
 zipp==1.2.0
