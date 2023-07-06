@@ -29,7 +29,7 @@ python-dateutil==2.8.1
 pytz==2019.3
 scandir==1.10.0
 scikit-learn==0.20.4
-scipy==1.2.3
+scipy==1.10.0
 seaborn==0.9.1
 singledispatch==3.4.0.3
 six==1.14.0
